@@ -34,8 +34,6 @@ The Tower is a simple computer architecture by design, made for academic purpose
 
 8. Programming
 
-#
-
 ## 1. Internal structure
 
 Tower has two buses, the data bus and the address bus. The data bus is 8 bits in size and the address bus is 16 bits. Addresses are naturally 16 bits long allowing a maximum of 64Ki memory locations each one byte in size. The CPU does not support memory banking. The full address range is split between the ROM and RAM chips. All data is stored and transferred in big endian order.
@@ -47,7 +45,6 @@ Tower has two buses, the data bus and the address bus. The data bus is 8 bits in
 | word | 8 |
 | dword | 16 |
 
-#
 
 ## 2. Registers
 
@@ -86,8 +83,6 @@ Flags are used to store boolean information between instructions. They are set a
 | Sign | Set if the number could be negative. |
 
 
-#
-
 ## 3. Arithmetic Logic Unit
 
 The Arithmetic Logic Unit(ALU) is responsible for performing all the calculations and logical operations of the computer. As the computer is 8-bit, the ALU works with binary numbers of that length. Allowing for a numeral range of 0 - 255 for unsigned and -128 - 127 for signed. Signed numbers are represented using two's complement. However the CPU at this level does not differentiate between signed and unsigned values it treats them the same way. It is up to the programmer to decide which value is signed and which not. The ALU uses 8-bit registers A and B as input. The result of the operation is automatically inserted into the A register.
@@ -123,8 +118,6 @@ D - opcode
 
 The individual micro-steps fetched from the ROM are executed in order using a 4bit counter allowing a maximum of 16 steps. The micro code consists of 32-bit values specifying which control signals have to be enabled.
 
-#
-
 ## 5. Interfaces
 
 The Tower can communicate with other hardware devices using a set of ports. These ports are connected directly to the data BUS and can be set to read or write data to or from the bus. Multiple devices can be connected at once and switched using the 3 least significant bits of the address bus. The maximum number of connected devices is 8. The interface is done over an 8 bit parallel signal and is not meant to be used directly by other devices rather by adapters which stand between the device and the computer. These adapters are responsible for converting parallel to serial data streams, connecting power to the device and other challenges which may occur.
@@ -134,8 +127,6 @@ Additional hardware:
 - 4x20 LCD text display
 - RTC
 - Sound generator
-
-#
 
 ## 6. Memory
 
@@ -179,8 +170,6 @@ Here is a list of all the additional virtual registers:
 | 0x06 | F | 1 | General purpose register. |
 | 0x07 | - | 1 | reserved |
 | 0x8..0xFF | - | 248 | Empty space available for user data. |
-
-#
 
 ## 7. Instruction Set Architecture
 ### General format
@@ -251,8 +240,6 @@ NAME \<destination\>  \<source\>
 |      | NOT |
 |      | AND |
 |      | HLT |
-
-#
 
 ## 8. Programming
 
