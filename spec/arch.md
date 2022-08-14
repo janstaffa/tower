@@ -91,8 +91,7 @@ Available operations of the ALU are:
 
 - ADD
 - SUBTRACT
-- NOT, NOR, AND
-- TWO'S COMPLEMENT
+- NOT, NAND
 - SHIFT RIGHT
 
 By design the ALU can only perform a small number of operations. More complex operations can be implemented in software. This allows for much simpler hardware at the cost of more instructions required to perform some operations. Since the computer is Turing complete, any calculation can be implemented using these few operations.
@@ -182,7 +181,7 @@ NAME \<destination\>  \<source\>
 
 **General**
 - HLT = halt the computer
-- END = reset the step counter
+- IEND = end of instruction, reset the step counter
 
 **Program Counter**
 - PCE = enable PC
@@ -266,3 +265,35 @@ Literals: literals prefixed with $
 - [%rax] - get value at address/register
 - literal values:
   - $100 - literal value 100
+  
+
+
+
+270 + 256 = 526
+00000001 00001110
+00000001 00000000
++
+00000010 00001110      
+
+
+270 - 256 = 14
+00000001 00001110
+11111110 11111111
+00000001 00000001
++              
+         1
+         00001110
+               
+
+
+
+
+
+511 + 511 = 1022
+
+00000001 11111111
+00000001 11111111
++
+       1 11111110
+00000010
+00000011 11111110
