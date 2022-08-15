@@ -1,0 +1,36 @@
+=== TOWER - CONTROL SIGNALS ===
+VALUE   MNEMONIC    DESCRIPTION
+0x00    HLT         Stops the clock.
+0x01    IEND        Signals the end of the instruction. Resets the step counter.
+0x02    PCE         Enables the Program Counter.
+0x03    PCO         Outputs the data in the Program Counter to the address BUS.
+0x04    PCJ         Sets the value of the Program Counter to the value on the BUS.
+0x05    AI          Stores the value on the data BUS in the A register.
+0x06    AO          Outputs the value stored in the A register to the data BUS.
+0x07    BI          Stores the value on the data BUS in the B register.
+0x08    BO          Outputs the value stored in the B register to the data BUS.
+0x09    RSO         Outputs the result of the calculation performed by the ALU to the data BUS.
+0x0a    OPADD       Sets the ALU operation to "add".
+0x0b    OPSUB       Sets the ALU operation to "subtract".
+0x0c    OPNOT       Sets the ALU operation to "not".
+0x0d    OPNAND      Sets the ALU operation to "nand".
+0x0e    OPSR        Sets the ALU operation to "shift right".
+0x0f    FI          Stores the flags produced by the ALU in the Flags register.
+0x10    FO          Outputs the flags register to the 4 lsb of the data BUS.
+0x11    MI          Stores the value on the data BUS in the memory at the location on the address BUS.
+0x12    MO          Outputs the data stored in memory at location on the address BUS to the data BUS.
+0x13    INI         Stores the value on the data BUS in the Instruction Register.
+0x14    HI          Stores the value on the data BUS in the H register.
+0x15    HO          Outputs the value stored in the H register to the data BUS.
+0x16    LI          Stores the value on the data BUS in the L register.
+0x17    LO          Outputs the value stored in the L register to the data BUS.
+0x18    HLO         Outputs the value stored in the HL registers to the address BUS.
+0x19    DVE         Enables external devices to access the data BUS.
+0x1a    DVW         Sets the communication mode to write.
+0x1b    
+0x1c    
+0x1d    
+0x1e    
+0x1f    
+
+
