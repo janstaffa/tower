@@ -231,7 +231,7 @@ NAME \<destination\>  \<source\>
 |      | DEC | %r/addr/imm16 | - | A1– | Decrements A1. |
 |      | CMP | [addr]/imm8/imm16 | - | A1 == RAX -\> Eq, A1 \< RAX -\> Ls | Sets a flag: Eq = equals, Ls |= less based on the result of a comparison. |
 |      | JMP | addr | - | PC = A1 | Sets the Program Counter to A1. |
-|      | JNZ | addr | - | C == 1 -\> PC = A1 | Sets the Program Counter to A1 if the carry |flag is set. |
+|      | JC | addr | - | C == 1 -\> PC = A1 | Sets the Program Counter to A1 if the carry |flag is set. |
 |      | JZ | addr | - | S == 0 -\> PC = A1 | Set the Program Counter to A1 if the zero |flag is set 0. |
 |      | MW | addr | [addr]/imm8 | A1 = A2 | Copies one byte from A1 to A2. |
 |      | STA | addr | - | A1 = A2 | Copies value from a register A2 to a memory location A1. |
@@ -297,3 +297,30 @@ Literals: literals prefixed with $
        1 11111110
 00000010
 00000011 11111110
+
+
+
+
+
+#FETCH
+PCO MO
+
+#macro ADD
+OPADD RSO AI
+
+const INSTRUCTIONS = [
+    INST!("LDA", 0x00),
+    INST!("STA", 0x01),
+    INST!("ADD", 0x02),
+    INST!("SUB", 0x03),
+];
+
+#def LDA ARGS=2 Z C
+FETCH
+PCO MO AI
+ADD
+AO 
+IEND
+
+
+#LDA ARGS=1 Z=0 C=1

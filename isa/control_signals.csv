@@ -1,0 +1,33 @@
+BIT,MNEMONIC,DESCRIPTION
+0,HLT,Stops the clock
+1,IEND,Signals the end of the instruction. Resets the step counter
+2,PCE,Enables the Program Counter
+3,PCO,Outputs address in the Program Counter to the address BUS
+4,PCJ,Sets the value of the Program Counter to the value on the address BUS
+5,AI,Stores the value on the data BUS in the A register
+6,AO,Outputs the value in the A register to the data BUS
+7,BI,Stores the value on the data BUS in the B register
+8,BO,Outputs the value in the B register to the data BUS
+9,RSO,Outputs the result of the operation performed by the ALU to the data BUS
+10,OPADD,Sets the ALU operation to “ADD”
+11,OPSUB,Sets the ALU operation to “SUBTRACT”
+12,OPNOT,Sets the ALU operation to “NOT”
+13,OPNAND,Sets the ALU operation to “NAND”
+14,OPSR,Sets the ALU operation to “SHIFT RIGHT”
+15,FI,Stores the 4 lsb of the data BUS in the Flags register
+16,FO,Outputs the value in the Flags register to the 4 lsb of the data BUS
+17,MI,Stores the value on the data BUS in memory at location that is on the address BUS
+18,MO,Outputs the value in memory at location that is on the address BUS to the data BUS
+19,INI,Stores the value on the data BUS in the Instruction Register
+20,HI,Stores the value on the data BUS in the H register
+21,HO,Outputs address in the H register to the address BUS
+22,LI,Stores the value on the data BUS in the L register
+23,LO,Outputs address in the L register to the address BUS
+24,HLO,Outputs the address stored in the H and L registers to the address BUS
+25,DVE,Enables external devices to access the data BUS
+26,DVW,Sets the communication mode to write
+27,,
+28,,
+29,,
+30,,
+31,,
