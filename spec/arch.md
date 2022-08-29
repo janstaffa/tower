@@ -102,17 +102,33 @@ If the 8 bit numeral range is not sufficient and the number overflows the carry 
 
 The control logic has multiple components, the instruction and argument registers and the microcode. Every instruction starts with a fetch cycle which fetches the instruction at the address pointed to by the Instruction Pointer from memory and stores it in the Instruction Register.
 
-If the instruction requires an argument, it will be fetched from the next one or two memory locations following the instruction and stored in the argument registers. The number of arguments an instruction requires is specified by the 2 highest significant bits of the instruction itself. This limits the number of hardware instructions to 64.
+If the instruction requires an argument, it will be fetched from the next one or two memory locations following the instruction and stored in the argument registers. The number of arguments an instruction requires and how these arguments should be processed is specified by the instruction mode which is stored in the 3 highest significant bits of the instruction itself. This limits the number of hardware instructions to 32.
+
+### Instruction modes
+**Implied** addressing is the simplest instruction mode, since it doesnt require any arguments. Instead the operand is obvious from the opcode. Instructions using this mode include: PUA, SLA, SRA.
+
+**Immediate** mode uses a one byte argument to specify a constant one byte value.
+
+**Constant** mode uses the following two words to specify a constant two byte value.
+  
+**Absolute** mode uses the following two words as the effective address of the operand.
+
+**Indirect** mode uses the following two words as the address containing the high byte of the effective address. The low byte is fetched by incrementing this address. This mode is useful for stepping through arrays as well as using pointers.
+
+**Zero page** mode allows for faster memory access by only requiring the low byte of the address to be specified. The high byte is implied to be the zero page. This mode is useful for storing temporary data that would otherwise be stored in registers.
+
+**Register A/B** mode specifies a register to be used as the operand. 
+
 
 A ROM containing the microcode is then used to find the set of micro instructions required to perform this instruction. This is done by combining values from the flags register, the current micro step, the number of arguments and the opcode of the instruction and using this value as a memory address in the ROM. Below is a visual representation of how these values are combined to form an address.
 
 ```
-AABBBBCCDDDDDD
+[AAAA][BB][CCC][DDDDD]
 
-A - flags
-B - step
-C - args 
-D - opcode
+A - micro step(4b)
+B - flags(2b)
+C - instruction mode(3b)
+D - opcode(5b)
 ```
 
 The individual micro-steps fetched from the ROM are executed in order using a 4bit counter allowing a maximum of 16 steps. The micro code consists of 32-bit values specifying which control signals have to be enabled.
@@ -141,34 +157,21 @@ The memory is split between multiple chips which are mapped to explicit memory a
 
 This allows for a very flexible architecture, since some of these chips can be accessed by other hardware rather than by the CPU.
 
-##
-
-### Memory access
-There are two ways to address memory.
-
-**Absolute addressing** specifies a literal memory address. Mathematical operations can be applied to the address before reading/writing. This is handled by the assembler.
-
-**Indirect addressing** specifies the address at which the real address is stored. This allows for using pointers and stepping through lists.
-
-##
-
 ### Zero page
 
-Since the computer is designed to run at a rather slow clock speed, memory access is not much slower than register access, therefore the Tower does not have any souly general purpose registers. To compensate this, it uses the first 256B of memory as a zero page. This area of memory is used to store additional data that would normally be stored in physical registers. These registers are referred to as "virtual registers".
+Since the computer is designed to run at a rather slow clock speed, memory access is not much slower than register access, therefore the Tower does not have any souly general purpose registers. To compensate this, it treats the first "page" of memory(first 256B) differently by only requiring the low byte to be specified when addressed. When used correctly, this scheme can save many clock cycles. This area of memory is used to store additional data that would normally be stored in physical registers. These registers are referred to as "virtual registers".
 
 Here is a list of all the additional virtual registers:
 
 | **location** | **name** | **size(w)** | **description** |
 | --- | --- | --- | --- |
-| 0x00 | SP | 1 | Stack pointer - points to the top address on the stack. |
-| 0x01 | X | 1 | Index register. |
-| 0x02 | Y | 1 | Index register. |
-| 0x03 | C | 1 | General purpose register. |
-| 0x04 | D | 1 | General purpose register. |
-| 0x05 | E | 1 | General purpose register. |
-| 0x06 | F | 1 | General purpose register. |
-| 0x07 | - | 1 | reserved |
-| 0x8..0xFF | - | 248 | Empty space available for user data. |
+| 0x00 | X | 1 | Index register. |
+| 0x01 | Y | 1 | Index register. |
+| 0x02 | C | 1 | General purpose register. |
+| 0x03 | D | 1 | General purpose register. |
+| 0x04 | E | 1 | General purpose register. |
+| 0x05 | F | 1 | General purpose register. |
+| 0x6..0xFF | - | 250 | Empty space available for user data. |
 
 ## 7. Instruction Set Architecture
 ### General format
@@ -265,62 +268,9 @@ Literals: literals prefixed with $
 - [%rax] - get value at address/register
 - literal values:
   - $100 - literal value 100
-  
-
-
-
-270 + 256 = 526
-00000001 00001110
-00000001 00000000
-+
-00000010 00001110      
-
-
-270 - 256 = 14
-00000001 00001110
-11111110 11111111
-00000001 00000001
-+              
-         1
-         00001110
-               
 
 
 
 
 
-511 + 511 = 1022
 
-00000001 11111111
-00000001 11111111
-+
-       1 11111110
-00000010
-00000011 11111110
-
-
-
-
-
-#FETCH
-PCO MO
-
-#macro ADD
-OPADD RSO AI
-
-const INSTRUCTIONS = [
-    INST!("LDA", 0x00),
-    INST!("STA", 0x01),
-    INST!("ADD", 0x02),
-    INST!("SUB", 0x03),
-];
-
-#def LDA ARGS=2 Z C
-FETCH
-PCO MO AI
-ADD
-AO 
-IEND
-
-
-#LDA ARGS=1 Z=0 C=1
