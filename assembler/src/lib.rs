@@ -6,7 +6,7 @@ use std::path::PathBuf;
 #[derive(Debug)]
 pub struct Instruction(pub u8, pub &'static str, pub &'static [IM]);
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum IM {
     Implied = 0,
     Immediate = 1,
@@ -109,7 +109,7 @@ impl AssemblerError {
     pub fn new(message: String, syntax_error: Option<SyntaxError>) -> Self {
         AssemblerError {
             message,
-            syntax_error
+            syntax_error,
         }
     }
 }

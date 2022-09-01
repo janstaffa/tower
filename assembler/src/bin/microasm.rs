@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::collections::VecDeque;
 use std::io::Write;
 use std::{fs::File, mem::MaybeUninit};
 use tower_assembler::{read_file, AssemblerError, SyntaxError, IM, INSTRUCTIONS};
@@ -12,9 +13,14 @@ const CONTROL_SIGNALS: &[&'static str] = &[
 
 const FLAGS: &[&'static str] = &["CARRY", "ZERO"];
 
+// constants
 const STEP_COUNTER_BIT_SIZE: u32 = 4;
 const INSTRUCTION_MODE_BIT_SIZE: u32 = 3;
 const FLAGS_BIT_SIZE: u32 = 2;
+
+const INSTRUCTION_MODE_COUNT: usize = 8;
+const FLAG_COMBINATIONS: usize = 4;
+const TOTAL_DEF_COMBINATIONS: usize = INSTRUCTION_MODE_COUNT * FLAG_COMBINATIONS;
 
 // the values are exponents
 type MicroStep = Vec<u32>;
@@ -59,6 +65,12 @@ struct Args {
     r#in: String,
 }
 
+#[derive(Debug, Clone)]
+struct Conditional {
+    flag: String,
+    is_inverted: bool,
+}
+
 fn main() {
     // This is temporary test code
     let dummy_code = "
@@ -75,7 +87,17 @@ fn main() {
     ; a comment in the middle of nowhere
     #def ADD
     imm:
-        HLT IEND TEST
+        OPSUB
+        #if carry
+            HLT IEND TEST
+            #if zero
+                DVE OPADD
+            #end
+        #else
+            DVE DVW
+        #end
+        OPSR
+
     const:
         DVE DVW
     IMP:
@@ -197,13 +219,15 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
     let mut current_macro: Option<MacroDef> = None;
 
     let mut is_defining_instruction = false;
-    let mut current_instruction: Option<[InstructionDef; 8]> = None;
+    let mut current_instruction: Option<[InstructionDef; TOTAL_DEF_COMBINATIONS]> = None;
     let mut currently_defined_im: Option<IM> = None;
 
     let mut is_defining_pref = false;
     let mut current_pref: Option<Vec<MicroStep>> = None;
     let mut is_defining_suf = false;
     let mut current_suf: Option<Vec<MicroStep>> = None;
+
+    let mut conditional_stack: VecDeque<Conditional> = VecDeque::new();
 
     for token in tokens {
         let (real_line, line) = (&token.0, &token.1);
@@ -263,7 +287,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                     // add a prefix if it is defined
                     let steps = current_pref.clone().unwrap_or(Vec::new());
 
-                    let modes: [IM; 8] = [
+                    let modes: [IM; INSTRUCTION_MODE_COUNT] = [
                         IM::Implied,
                         IM::Immediate,
                         IM::Constant,
@@ -276,24 +300,34 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
 
                     // initialize a version of the instruction for every Instruction Mode
                     let instruction_versions = {
-                        let mut array: [MaybeUninit<InstructionDef>; 8] =
+                        let mut array: [MaybeUninit<InstructionDef>; TOTAL_DEF_COMBINATIONS] =
                             unsafe { MaybeUninit::uninit().assume_init() };
 
-                        for (i, element) in array.iter_mut().enumerate() {
-                            let m = modes[i].clone();
-                            let ins_v = InstructionDef {
-                                name: inst_name.clone(),
-                                instruction_mode: m,
-                                flags: FlagStatus {
-                                    carry: false,
-                                    zero: false,
-                                },
-                                steps: steps.clone(),
-                            };
-                            *element = MaybeUninit::new(ins_v);
+                        for im_idx in 0..INSTRUCTION_MODE_COUNT {
+                            let m = modes[im_idx].clone();
+
+                            for flg_idx in 0..FLAG_COMBINATIONS {
+                                let carry = (flg_idx & 0b1) != 0;
+                                let zero = (flg_idx & 0b10) != 0;
+
+                                let ins_v = InstructionDef {
+                                    name: inst_name.clone(),
+                                    instruction_mode: m,
+                                    flags: FlagStatus { carry, zero },
+                                    steps: steps.clone(),
+                                };
+
+                                let abs_idx = (im_idx * FLAG_COMBINATIONS) + flg_idx;
+                                let element = array.get_mut(abs_idx).unwrap();
+                                *element = MaybeUninit::new(ins_v);
+                            }
                         }
 
-                        unsafe { std::mem::transmute::<_, [InstructionDef; 8]>(array) }
+                        unsafe {
+                            std::mem::transmute::<_, [InstructionDef; TOTAL_DEF_COMBINATIONS]>(
+                                array,
+                            )
+                        }
                     };
 
                     current_instruction = Some(instruction_versions);
@@ -322,9 +356,46 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                     current_macro = Some(new_macro_def);
                 }
 
-                "if" => {}
-                "end" => {}
-                "else" => {}
+                "if" => {
+                    let flag = args[0].trim().to_lowercase();
+                    let exists = FLAGS.iter().find(|&f| f.to_lowercase() == flag).is_some();
+
+                    if !exists {
+                        return Err(SyntaxError::new(
+                            *real_line,
+                            format!("Unknown flag '{}'", flag),
+                        ));
+                    }
+
+                    conditional_stack.push_back(Conditional {
+                        flag,
+                        is_inverted: false,
+                    });
+                }
+                "end" => {
+                    if conditional_stack.len() == 0 {
+                        return Err(SyntaxError::new(
+                            *real_line,
+                            String::from(
+                                "Invalid use of 'end', there is no conditional to be closed.",
+                            ),
+                        ));
+                    }
+                    conditional_stack.pop_back().unwrap();
+                }
+                "else" => {
+                    if conditional_stack.len() == 0 {
+                        return Err(SyntaxError::new(
+                            *real_line,
+                            String::from("Invalid use of 'else', there is no if block."),
+                        ));
+                    }
+
+                    let mut conditional = conditional_stack.pop_back().unwrap();
+                    conditional.is_inverted = true;
+
+                    conditional_stack.push_back(conditional);
+                }
                 "pref" => {
                     is_defining_pref = true;
                     current_pref = Some(Vec::new());
@@ -393,15 +464,27 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
 
                 if is_defining_instruction {
                     let current_instruction = current_instruction.as_mut().unwrap();
-                    if let Some(im) = currently_defined_im.clone() {
-                        for ins in current_instruction {
-                            if ins.instruction_mode == im {
-                                ins.steps.push(this_step.clone());
-                                ins.steps.extend(macro_steps.clone());
+
+                    let matches_conditions = |inm: &IM, fgs: &FlagStatus| -> bool {
+                        if let Some(im) = currently_defined_im.clone() {
+                            if im != *inm {
+                                return false;
                             }
                         }
-                    } else {
-                        for ins in current_instruction {
+
+                        if conditional_stack.len() > 0 {
+                            for c in &conditional_stack {
+                                if (c.flag == "carry" && fgs.carry == c.is_inverted)
+                                    || (c.flag == "zero" && fgs.zero == c.is_inverted)
+                                {
+                                    return false;
+                                }
+                            }
+                        }
+                        true
+                    };
+                    for ins in current_instruction {
+                        if matches_conditions(&ins.instruction_mode, &ins.flags) {
                             ins.steps.push(this_step.clone());
                             ins.steps.extend(macro_steps.clone());
                         }
