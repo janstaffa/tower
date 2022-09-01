@@ -1,2 +1,2 @@
-# tower
-An 8 bit custom computer.
+# Tower
+A custom 8-bit minicomputer and architecture.
