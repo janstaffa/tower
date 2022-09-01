@@ -1,14 +1,16 @@
 use clap::Parser;
-use std::io::{Write};
-use std::{fs::File};
+use std::io::Write;
+use std::{fs::File, mem::MaybeUninit};
 use tower_assembler::{read_file, AssemblerError, SyntaxError, IM, INSTRUCTIONS};
 
 const COMMENT_IDENT: char = ';';
 
 const CONTROL_SIGNALS: &[&'static str] = &[
-    "HLT", "IEND", "PCE", "PCO", "PCJ", "AI", "AO", "BI", "BO", "RSO", "OPADD", "OPSUB", "OPNOT",
+    "IEND", "HLT", "PCE", "PCO", "PCJ", "AI", "AO", "BI", "BO", "RSO", "OPADD", "OPSUB", "OPNOT",
     "OPNAND", "OPSR", "FI", "FO", "MI", "MO", "INI", "HI", "HO", "LI", "LO", "HLO", "DVE", "DVW",
 ];
+
+const FLAGS: &[&'static str] = &["CARRY", "ZERO"];
 
 const STEP_COUNTER_BIT_SIZE: u32 = 4;
 const INSTRUCTION_MODE_BIT_SIZE: u32 = 3;
@@ -22,13 +24,13 @@ struct MacroDef {
     steps: Vec<MicroStep>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct FlagStatus {
     carry: bool,
     zero: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct InstructionDef {
     name: String,
     instruction_mode: IM,
@@ -58,22 +60,29 @@ struct Args {
 }
 
 fn main() {
+    // This is temporary test code
     let dummy_code = "
-	 #macro TEST
-	 PCE PCO
+    ; this is a comment
+    #macro TEST
+    PCE PCO
 
-	 #macro TEST2
-	 PCE PCO
-     PCJ
+    #pref
+    HLT
 
-	 #def ADD
-	 HLT IEND TEST
-  
-	 #def SUB
-	 HLT IEND
-     TEST2
-	 "
+    #suf
+    PCJ IEND
+    
+    ; a comment in the middle of nowhere
+    #def ADD
+    imm:
+        HLT IEND TEST
+    const:
+        DVE DVW
+    IMP:
+        MI mo
+	"
     .into();
+
     let tokens = tokenize(dummy_code).unwrap();
     println!("Tokenized: {:?}", tokens);
     let parsed = parse(tokens).unwrap();
@@ -129,9 +138,9 @@ fn tokenize(code: String) -> Result<Vec<TokenizedLine>, SyntaxError> {
         // check for comments and remove if found
         let comment_idx = line.chars().position(|c| c == COMMENT_IDENT);
         let line = if let Some(idx) = comment_idx {
-            line[0..idx].to_string()
+            line[0..idx].trim().to_string()
         } else {
-            line
+            line.trim().to_string()
         };
 
         if line.len() == 0 {
@@ -156,6 +165,17 @@ fn tokenize(code: String) -> Result<Vec<TokenizedLine>, SyntaxError> {
                 real_line,
                 LineType::KeyLine(words[0][1..].to_string(), words[1..].to_vec()),
             )
+        } else if let Some(':') = line.chars().last() {
+            if words.len() > 1 {
+                return Err(SyntaxError::new(
+                    real_line,
+                    String::from("Invalid label definition, a label can only be one word."),
+                ));
+            }
+            let mut label = line.clone();
+            label.pop();
+
+            TokenizedLine(real_line, LineType::LabelLine(label))
         } else {
             TokenizedLine(real_line, LineType::StepLine(words))
         };
@@ -175,9 +195,17 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
     let mut instructions: Vec<InstructionDef> = Vec::new();
 
     let mut current_macro: Option<MacroDef> = None;
-    let mut current_instruction: Option<InstructionDef> = None;
 
-    for (i, token) in tokens.iter().enumerate() {
+    let mut is_defining_instruction = false;
+    let mut current_instruction: Option<[InstructionDef; 8]> = None;
+    let mut currently_defined_im: Option<IM> = None;
+
+    let mut is_defining_pref = false;
+    let mut current_pref: Option<Vec<MicroStep>> = None;
+    let mut is_defining_suf = false;
+    let mut current_suf: Option<Vec<MicroStep>> = None;
+
+    for token in tokens {
         let (real_line, line) = (&token.0, &token.1);
 
         let mut is_new_def = false;
@@ -187,14 +215,23 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
             }
         }
         if is_new_def {
-            if let Some(instruction) = current_instruction {
-                instructions.push(instruction);
-                current_instruction = None;
+            // add a suffix if it is defined
+            let extra_steps = current_suf.clone().unwrap_or(Vec::new());
+            if is_defining_instruction {
+                let mut current_instruction = current_instruction.clone().unwrap();
+                for ins in &mut current_instruction {
+                    ins.steps.extend(extra_steps.clone());
+                }
+                instructions.extend(current_instruction);
+                currently_defined_im = None;
+                is_defining_instruction = false;
             }
             if let Some(macro_def) = current_macro {
                 macros.push(macro_def);
                 current_macro = None;
             }
+            is_defining_pref = false;
+            is_defining_suf = false;
         }
         match line {
             LineType::KeyLine(keyword, args) => match &keyword[..] {
@@ -220,17 +257,46 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                             format!("Unknown instruction name '{}'", inst_name),
                         ));
                     }
-                    let new_inst_def = InstructionDef {
-                        name: inst_name,
-                        instruction_mode: IM::Implied,
-                        flags: FlagStatus {
-                            carry: false,
-                            zero: false,
-                        },
-                        steps: Vec::new(),
+
+                    is_defining_instruction = true;
+
+                    // add a prefix if it is defined
+                    let steps = current_pref.clone().unwrap_or(Vec::new());
+
+                    let modes: [IM; 8] = [
+                        IM::Implied,
+                        IM::Immediate,
+                        IM::Constant,
+                        IM::Absolute,
+                        IM::Indirect,
+                        IM::ZeroPage,
+                        IM::RegA,
+                        IM::RegB,
+                    ];
+
+                    // initialize a version of the instruction for every Instruction Mode
+                    let instruction_versions = {
+                        let mut array: [MaybeUninit<InstructionDef>; 8] =
+                            unsafe { MaybeUninit::uninit().assume_init() };
+
+                        for (i, element) in array.iter_mut().enumerate() {
+                            let m = modes[i].clone();
+                            let ins_v = InstructionDef {
+                                name: inst_name.clone(),
+                                instruction_mode: m,
+                                flags: FlagStatus {
+                                    carry: false,
+                                    zero: false,
+                                },
+                                steps: steps.clone(),
+                            };
+                            *element = MaybeUninit::new(ins_v);
+                        }
+
+                        unsafe { std::mem::transmute::<_, [InstructionDef; 8]>(array) }
                     };
 
-                    current_instruction = Some(new_inst_def);
+                    current_instruction = Some(instruction_versions);
                 }
                 "macro" => {
                     let macro_name = args[0].to_lowercase().trim().to_string();
@@ -259,8 +325,14 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                 "if" => {}
                 "end" => {}
                 "else" => {}
-                "pref" => {}
-                "suf" => {}
+                "pref" => {
+                    is_defining_pref = true;
+                    current_pref = Some(Vec::new());
+                }
+                "suf" => {
+                    is_defining_suf = true;
+                    current_suf = Some(Vec::new());
+                }
                 _ => {
                     return Err(SyntaxError::new(
                         *real_line,
@@ -271,7 +343,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
             LineType::StepLine(words) => {
                 let mut control_signals = Vec::new();
 
-                let mut added_steps = Vec::new();
+                let mut macro_steps = Vec::new();
 
                 for word in words {
                     let signal_idx = CONTROL_SIGNALS
@@ -297,7 +369,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                             control_signals.extend(macro_def.steps.first().unwrap());
 
                             if macro_def.steps.len() > 1 {
-                                added_steps.extend(macro_def.steps[1..].to_vec());
+                                macro_steps.extend(macro_def.steps[1..].to_vec());
                             }
                         } else {
                             return Err(SyntaxError::new(
@@ -309,20 +381,70 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                 }
 
                 let this_step = control_signals as MicroStep;
-                if let Some(instruction) = &mut current_instruction {
-                    instruction.steps.push(this_step.clone());
-                    instruction.steps.extend(added_steps.clone());
+
+                if is_defining_pref {
+                    current_pref.as_mut().unwrap().push(this_step.clone());
+                    current_pref.as_mut().unwrap().extend(macro_steps.clone());
+                }
+                if is_defining_suf {
+                    current_suf.as_mut().unwrap().push(this_step.clone());
+                    current_suf.as_mut().unwrap().extend(macro_steps.clone());
+                }
+
+                if is_defining_instruction {
+                    let current_instruction = current_instruction.as_mut().unwrap();
+                    if let Some(im) = currently_defined_im.clone() {
+                        for ins in current_instruction {
+                            if ins.instruction_mode == im {
+                                ins.steps.push(this_step.clone());
+                                ins.steps.extend(macro_steps.clone());
+                            }
+                        }
+                    } else {
+                        for ins in current_instruction {
+                            ins.steps.push(this_step.clone());
+                            ins.steps.extend(macro_steps.clone());
+                        }
+                    }
                 }
                 if let Some(macro_def) = &mut current_macro {
                     macro_def.steps.push(this_step);
-                    macro_def.steps.extend(added_steps.clone());
+                    macro_def.steps.extend(macro_steps.clone());
                 }
             }
-            LineType::LabelLine(label) => {}
+            LineType::LabelLine(label) => {
+                let formated = label.trim().to_lowercase();
+                let instruction_mode = match &formated[..] {
+                    "imp" => IM::Implied,
+                    "imm" => IM::Immediate,
+                    "const" => IM::Constant,
+                    "abs" => IM::Absolute,
+                    "ind" => IM::Indirect,
+                    "zpage" => IM::ZeroPage,
+                    "rega" => IM::RegA,
+                    "regb" => IM::RegB,
+                    _ => {
+                        return Err(SyntaxError::new(
+                            *real_line,
+                            format!("Invalid Instruction Mode label '{}'", label),
+                        ));
+                    }
+                };
+
+                currently_defined_im = Some(instruction_mode);
+            }
         }
     }
-    if let Some(instruction) = current_instruction {
-        instructions.push(instruction);
+
+    // add a suffix if it is defined
+    let extra_steps = current_suf.clone().unwrap_or(Vec::new());
+
+    if is_defining_instruction {
+        let mut current_instruction = current_instruction.unwrap();
+        for ins in &mut current_instruction {
+            ins.steps.extend(extra_steps.clone());
+        }
+        instructions.extend(current_instruction);
     }
     if let Some(macro_def) = current_macro {
         macros.push(macro_def);
@@ -338,10 +460,11 @@ fn assemble(instruction_defs: Vec<InstructionDef>) -> Vec<u8> {
         * 2_u32.pow(STEP_COUNTER_BIT_SIZE)
         * 2_u32.pow(FLAGS_BIT_SIZE)
         * 2_u32.pow(INSTRUCTION_MODE_BIT_SIZE);
+
     'addr_loop: for addr in 0..combs {
         let opcode = addr >> 9;
-        let flags = (addr >> 8) & 0b11;
-        let instruction_mode = (addr >> 5) & 0b111;
+        let instruction_mode = (addr >> 6) & 0b111;
+        let flags = (addr >> 4) & 0b11;
         let micro_step = addr & 0b1111;
 
         for idf in &instruction_defs {
@@ -393,59 +516,79 @@ fn assemble(instruction_defs: Vec<InstructionDef>) -> Vec<u8> {
 #[test]
 fn test_tokenizer_and_parser() {
     let dummy_code = "
-        #macro TEST
-        PCE PCO
+    ; this is a comment
+    #macro TEST
+    PCE PCO
 
-        #macro TEST2
-        PCE PCO
-        PCJ
+    #pref
+    TEST
+    HLT
 
-        #def ADD
-        HLT IEND TEST
+    #suf
+    IEND
+
+    #macro TEST2
+    PCE PCO
+    PCJ
+    ; a comment in the middle of nowhere
+    #def ADD
+    HLT IEND TEST
+
+    #pref
+    DVW
     
-        #def SUB
-        HLT IEND
-        TEST2
+    #def SUB
+    HLT IEND
+    TEST2
+    ; does this work?
 	"
     .into();
 
     let tokens = tokenize(dummy_code).unwrap();
-    let correctly_tokenized = Vec::from([
+
+    let correctly_tokenized = [
         TokenizedLine(
-            2,
+            3,
             LineType::KeyLine("macro".into(), Vec::from(["test".into()])),
         ),
         TokenizedLine(
-            3,
+            4,
             LineType::StepLine(Vec::from(["pce".into(), "pco".into()])),
         ),
+        TokenizedLine(6, LineType::KeyLine("pref".into(), Vec::from([]))),
+        TokenizedLine(7, LineType::StepLine(Vec::from(["test".into()]))),
+        TokenizedLine(8, LineType::StepLine(Vec::from(["hlt".into()]))),
+        TokenizedLine(10, LineType::KeyLine("suf".into(), Vec::from([]))),
+        TokenizedLine(11, LineType::StepLine(Vec::from(["iend".into()]))),
         TokenizedLine(
-            5,
+            13,
             LineType::KeyLine("macro".into(), Vec::from(["test2".into()])),
         ),
         TokenizedLine(
-            6,
+            14,
             LineType::StepLine(Vec::from(["pce".into(), "pco".into()])),
         ),
-        TokenizedLine(7, LineType::StepLine(Vec::from(["pcj".into()]))),
+        TokenizedLine(15, LineType::StepLine(Vec::from(["pcj".into()]))),
         TokenizedLine(
-            9,
+            17,
             LineType::KeyLine("def".into(), Vec::from(["add".into()])),
         ),
         TokenizedLine(
-            10,
+            18,
             LineType::StepLine(Vec::from(["hlt".into(), "iend".into(), "test".into()])),
         ),
+        TokenizedLine(20, LineType::KeyLine("pref".into(), Vec::from([]))),
+        TokenizedLine(21, LineType::StepLine(Vec::from(["dvw".into()]))),
         TokenizedLine(
-            12,
+            23,
             LineType::KeyLine("def".into(), Vec::from(["sub".into()])),
         ),
         TokenizedLine(
-            13,
+            24,
             LineType::StepLine(Vec::from(["hlt".into(), "iend".into()])),
         ),
-        TokenizedLine(14, LineType::StepLine(Vec::from(["test2".into()]))),
-    ]);
+        TokenizedLine(25, LineType::StepLine(Vec::from(["test2".into()]))),
+    ];
 
     for (i, t) in tokens.iter().enumerate() {
         assert_eq!(t.0, correctly_tokenized[i].0);
@@ -464,7 +607,7 @@ fn test_tokenizer_and_parser() {
 
     let parsed = parse(tokens).unwrap();
 
-    let correctly_parsed = Vec::from([
+    let correctly_parsed = [
         InstructionDef {
             name: "add".into(),
             instruction_mode: IM::Implied,
@@ -472,7 +615,12 @@ fn test_tokenizer_and_parser() {
                 carry: false,
                 zero: false,
             },
-            steps: Vec::from([Vec::from([0, 1, 2, 3])]),
+            steps: Vec::from([
+                Vec::from([2, 3]),
+                Vec::from([1]),
+                Vec::from([1, 0, 2, 3]),
+                Vec::from([0]),
+            ]),
         },
         InstructionDef {
             name: "sub".into(),
@@ -481,9 +629,15 @@ fn test_tokenizer_and_parser() {
                 carry: false,
                 zero: false,
             },
-            steps: Vec::from([Vec::from([0, 1]), Vec::from([2, 3]), Vec::from([4])]),
+            steps: Vec::from([
+                Vec::from([26]),
+                Vec::from([1, 0]),
+                Vec::from([2, 3]),
+                Vec::from([4]),
+                Vec::from([0]),
+            ]),
         },
-    ]);
+    ];
 
     for (i, p) in parsed.iter().enumerate() {
         assert_eq!(p.name, correctly_parsed[i].name);
