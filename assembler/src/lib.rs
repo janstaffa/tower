@@ -1,87 +1,56 @@
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::{Error, ErrorKind};
-use std::path::PathBuf;
 
-#[derive(Debug)]
-pub struct Instruction(pub u8, pub &'static str, pub &'static [IM]);
+pub static IM_IMPLIED: u32 = 1 << 0;
+pub static IM_IMMEDIATE: u32 = 1 << 1;
+pub static IM_CONSTANT: u32 = 1 << 2;
+pub static IM_ABSOLUTE: u32 = 1 << 3;
+pub static IM_INDIRECT: u32 = 1 << 4;
+pub static IM_ZEROPAGE: u32 = 1 << 5;
+pub static IM_REGA: u32 = 1 << 6;
+pub static IM_REGB: u32 = 1 << 7;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum IM {
-    Implied = 0,
-    Immediate = 1,
-    Constant = 2,
-    Absolute = 3,
-    Indirect = 4,
-    ZeroPage = 5,
-    RegA = 6,
-    RegB = 7,
-}
-
-impl IM {
-    pub fn get_value(&self) -> u32 {
-        match &self {
-            IM::Implied => IM::Implied as u32,
-            IM::Immediate => IM::Immediate as u32,
-            IM::Constant => IM::Constant as u32,
-            IM::Absolute => IM::Absolute as u32,
-            IM::Indirect => IM::Indirect as u32,
-            IM::ZeroPage => IM::ZeroPage as u32,
-            IM::RegA => IM::RegA as u32,
-            IM::RegB => IM::RegB as u32,
-        }
-    }
-}
-#[macro_export]
-macro_rules! Inst {
-    ( $op_code:literal, $name:ident, $($arg_type:expr),+ ) => {
-            Instruction($op_code, stringify!($name), &[$($arg_type,)+])
-    };
-}
-
+pub type Instruction = (u32, &'static str, u32);
 pub static INSTRUCTIONS: &[Instruction] = &[
-    Inst!(0x00, NOP, IM::Implied),
-    Inst!(0x01, LDA, IM::Immediate, IM::Absolute, IM::ZeroPage),
-    Inst!(0x02, STA, IM::Absolute, IM::ZeroPage),
-    Inst!(0x03, TBA, IM::Implied),
-    Inst!(0x04, TAB, IM::Implied),
-    Inst!(0x05, TFA, IM::Implied),
-    Inst!(0x06, TAF, IM::Implied),
-    Inst!(0x07, JMP, IM::Absolute),
-    Inst!(0x08, JZ, IM::Absolute),
-    Inst!(0x09, JC, IM::Absolute),
-    Inst!(0x0a, ADD, IM::Immediate, IM::Absolute, IM::ZeroPage),
-    Inst!(0x0b, ADC, IM::Immediate, IM::Absolute, IM::ZeroPage),
-    Inst!(0x0c, SUB, IM::Immediate, IM::Absolute, IM::ZeroPage),
-    Inst!(
+    (0x00, "NOP", IM_IMPLIED),
+    (0x01, "LDA", IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
+    (0x02, "STA", IM_ABSOLUTE | IM_ZEROPAGE),
+    (0x03, "TBA", IM_IMPLIED),
+    (0x04, "TAB", IM_IMPLIED),
+    (0x05, "TFA", IM_IMPLIED),
+    (0x06, "TAF", IM_IMPLIED),
+    (0x07, "JMP", IM_CONSTANT),
+    (0x08, "JZ", IM_CONSTANT),
+    (0x09, "JC", IM_CONSTANT),
+    (0x0a, "ADD", IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
+    (0x0b, "ADC", IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
+    (0x0c, "SUB", IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
+    (
         0x0d,
-        NOT,
-        IM::Implied,
-        IM::Immediate,
-        IM::Absolute,
-        IM::ZeroPage
+        "NOT",
+        IM_IMPLIED | IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE,
     ),
-    Inst!(0x0e, NAND, IM::Immediate, IM::Absolute, IM::ZeroPage),
-    Inst!(
+    (0x0e, "NAND", IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
+    (
         0x0f,
-        SRA,
-        IM::Implied,
-        IM::Immediate,
-        IM::Absolute,
-        IM::ZeroPage
+        "SRA",
+        IM_IMPLIED | IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE,
     ),
-    Inst!(
+    (
         0x10,
-        SLA,
-        IM::Implied,
-        IM::Immediate,
-        IM::Absolute,
-        IM::ZeroPage
+        "SLA",
+        IM_IMPLIED | IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE,
     ),
-    Inst!(0x11, RB, IM::Immediate, IM::Absolute, IM::ZeroPage),
-    Inst!(0x12, WB, IM::Immediate, IM::Absolute, IM::ZeroPage),
-    Inst!(0x1f, HLT, IM::Implied),
+    (0x11, "RB", IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
+    (0x12, "WB", IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
+    (0x1f, "HLT", IM_IMPLIED),
 ];
+
+pub fn get_instruction(name: &str) -> Option<&(u32, &str, u32)> {
+    INSTRUCTIONS
+        .iter()
+        .find(|&i| i.1.to_lowercase() == name.to_lowercase())
+}
 
 pub fn read_file(path: &str) -> Result<String, AssemblerError> {
     let mut file = File::open(path).or(Err(AssemblerError::new(
