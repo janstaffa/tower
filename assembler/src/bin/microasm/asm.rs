@@ -1,95 +1,20 @@
-use chrono::Utc;
-use clap::Parser;
 use regex::Regex;
-use std::collections::VecDeque;
 use std::io::Write;
-use std::{fs::File, mem::MaybeUninit};
+use std::mem::MaybeUninit;
+use std::{collections::VecDeque, fs::File};
 use tower_assembler::{
-    get_instruction, read_file, AssemblerError, SyntaxError, IM_ABSOLUTE, IM_CONSTANT,
+    get_instruction_by_name, read_file, AssemblerError, SyntaxError, IM_ABSOLUTE, IM_CONSTANT,
     IM_IMMEDIATE, IM_IMPLIED, IM_INDIRECT, IM_REGA, IM_REGB, IM_ZEROPAGE, INSTRUCTIONS,
 };
 
-const COMMENT_IDENT: char = ';';
+use crate::{
+    Conditional, InstructionDef, LineType, MacroDef, MicroStep, TokenizedLine, COMMENT_IDENT,
+    CONTROL_SIGNALS, FLAGS, FLAGS_BIT_SIZE, FLAG_COMBINATIONS, INSTRUCTION_MODE_BIT_SIZE,
+    INSTRUCTION_MODE_COUNT, MAX_MICRO_STEP_COUNT, STEP_COUNTER_BIT_SIZE, TOTAL_DEF_COMBINATIONS,
+};
 
-const CONTROL_SIGNALS: &[&'static str] = &[
-    "IEND", "HLT", "PCE", "PCO", "PCJ", "AI", "AO", "BI", "BO", "RSO", "OPADD", "OPSUB", "OPNOT",
-    "OPNAND", "OPSR", "FI", "FO", "MI", "MO", "INI", "HI", "HO", "LI", "LO", "HLO", "DVE", "DVW",
-];
-
-// constants
-const STEP_COUNTER_BIT_SIZE: u32 = 4;
-const INSTRUCTION_MODE_BIT_SIZE: u32 = 3;
-const FLAGS_BIT_SIZE: u32 = 2;
-
-const INSTRUCTION_MODE_COUNT: usize = 8;
-const FLAG_COMBINATIONS: usize = 4;
-const TOTAL_DEF_COMBINATIONS: usize = INSTRUCTION_MODE_COUNT * FLAG_COMBINATIONS;
-
-const MAX_MICRO_STEP_COUNT: usize = 16;
-
-const FLAGS: [&'static str; FLAGS_BIT_SIZE as usize] = ["CARRY", "ZERO"];
-
-// the values are exponents
-type MicroStep = Vec<u32>;
-
-struct MacroDef {
-    name: String,
-    steps: Vec<MicroStep>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct InstructionDef {
-    name: String,
-    instruction_mode: u32,
-    flags: u32,
-    steps: Vec<MicroStep>,
-}
-
-#[derive(Debug, PartialEq)]
-struct TokenizedLine(u32, LineType);
-
-#[derive(Debug, PartialEq)]
-enum LineType {
-    // name, args
-    KeyLine(String, Vec<String>),
-    // words
-    StepLine(Vec<String>),
-    // name of the label
-    LabelLine(String),
-}
-
-#[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
-struct Args {
-    /// Source file to be assembled
-    #[clap(short, long, value_parser)]
-    r#in: String,
-}
-
-#[derive(Debug, Clone)]
-struct Conditional {
-    flag: u32,
-    is_inverted: bool,
-}
-
-fn main() {
-    if let Err(e) = run() {
-        eprintln!("{}", format!("❌ Error: {}", e.message));
-        if let Some(serr) = e.syntax_error {
-            eprintln!("{}", format!("{} (line {})", serr.message, serr.line));
-        }
-    }
-}
-
-fn run() -> Result<(), AssemblerError> {
-    // let args = Args::parse();
-    let input_file_path = "examples/test.asm"; // &args.r#in;
-    let input = read_file(input_file_path)?;
-
-    let start_time = Utc::now();
-
-    println!("Assembling... {}", input_file_path);
-
+pub fn assembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError> {
+    let input = read_file(file_in)?;
     // tokenize
     let tokens = match tokenize(input) {
         Ok(t) => t,
@@ -116,13 +41,8 @@ fn run() -> Result<(), AssemblerError> {
     let output = assemble(parsed);
 
     // write to output file
-    let mut file = File::create("microcode.bin").unwrap();
+    let mut file = File::create(file_out).unwrap();
     file.write_all(&output).unwrap();
-
-    let now = Utc::now();
-    let delta_time = now - start_time;
-    println!("✔️  Finished (after {}ms)", delta_time.num_milliseconds());
-
     Ok(())
 }
 
@@ -241,7 +161,16 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
             // complete the current definition and save it to its corresponding vector
             if is_defining_instruction {
                 let mut current_instruction = current_instruction.clone().unwrap();
+                let available_ims =
+                    get_instruction_by_name(&current_instruction.first().unwrap().name)
+                        .unwrap()
+                        .2;
+
                 for ins in &mut current_instruction {
+                    // skip if this mode is not available
+                    if (available_ims & ins.instruction_mode) == 0 {
+                        continue;
+                    }
                     ins.steps.extend(extra_steps.clone());
                     if ins.steps.len() > MAX_MICRO_STEP_COUNT {
                         return Err(SyntaxError::new(
@@ -253,6 +182,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                         ));
                     }
                 }
+
                 instructions.extend(current_instruction);
                 currently_defined_im = None;
                 is_defining_instruction = false;
@@ -278,7 +208,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                     let inst_name = args[0].to_lowercase().trim().to_string();
 
                     // check if an instruction with this name is available
-                    let exists = get_instruction(&inst_name).is_some();
+                    let exists = get_instruction_by_name(&inst_name).is_some();
 
                     if !exists {
                         return Err(SyntaxError::new(
@@ -313,6 +243,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                         IM_REGB,
                     ];
 
+                    let available_ims = get_instruction_by_name(&inst_name).unwrap().2;
                     // initialize a version of the instruction for every Instruction Mode and flag combination
                     let instruction_versions = {
                         let mut array: [MaybeUninit<InstructionDef>; TOTAL_DEF_COMBINATIONS] =
@@ -320,6 +251,11 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
 
                         for im_idx in 0..INSTRUCTION_MODE_COUNT {
                             let m = modes[im_idx].clone();
+                            let steps = if (available_ims & m) != 0 {
+                                steps.clone()
+                            } else {
+                                Vec::new()
+                            };
 
                             for flg_idx in 0..FLAG_COMBINATIONS {
                                 let flg_val = flg_idx as u32;
@@ -355,7 +291,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                         .find(|&s| s.to_lowercase() == macro_name)
                         .is_some()
                         || macros.iter().find(|&m| m.name == macro_name).is_some()
-                        || get_instruction(&macro_name).is_some();
+                        || get_instruction_by_name(&macro_name).is_some();
 
                     if is_used {
                         return Err(SyntaxError::new(
@@ -517,8 +453,17 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                 if is_defining_instruction {
                     let current_instruction = current_instruction.as_mut().unwrap();
 
+                    let available_ims =
+                        get_instruction_by_name(&current_instruction.first().unwrap().name)
+                            .unwrap()
+                            .2;
+							
                     // filter out, what definitions should be affected
                     let matches_conditions = |inm: &u32, fgs: u32| -> bool {
+						if (available_ims & inm) == 0 {
+							return false;
+						}
+						
                         if let Some(im) = currently_defined_im.clone() {
                             if im != *inm {
                                 return false;
@@ -587,7 +532,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                 };
 
                 let current_instruction_name = &current_instruction.as_ref().unwrap()[0].name;
-                let inst = get_instruction(current_instruction_name).unwrap();
+                let inst = get_instruction_by_name(current_instruction_name).unwrap();
                 if (inst.2 & instruction_mode_val) == 0 {
                     return Err(SyntaxError::new(
                         *real_line,
@@ -609,7 +554,14 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
     // finish the last definition
     if is_defining_instruction {
         let mut current_instruction = current_instruction.unwrap();
+        let available_ims = get_instruction_by_name(&current_instruction.first().unwrap().name)
+            .unwrap()
+            .2;
         for ins in &mut current_instruction {
+            // skip if this mode is not available
+            if (available_ims & ins.instruction_mode) == 0 {
+                continue;
+            }
             ins.steps.extend(extra_steps.clone());
             if ins.steps.len() > MAX_MICRO_STEP_COUNT {
                 return Err(SyntaxError::new(
@@ -620,6 +572,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                 ));
             }
         }
+
         instructions.extend(current_instruction);
     }
 
@@ -645,16 +598,18 @@ fn assemble(instruction_defs: Vec<InstructionDef>) -> Vec<u8> {
 
         for idf in &instruction_defs {
             // get the flags value
-
             let flags_match = flags == idf.flags;
-            let instruction_modes_match = idf.instruction_mode == instruction_mode;
 
-            let inst = get_instruction(&idf.name).unwrap();
+            let instruction_modes_match =
+                (idf.instruction_mode as f32).log2() as u32 == instruction_mode;
+
+            let inst = get_instruction_by_name(&idf.name).unwrap();
             let opcodes_match = inst.0 as u32 == opcode;
 
             // check if this is the correct definition
             if flags_match && instruction_modes_match && opcodes_match {
-                if micro_step > (idf.steps.len() - 1) as u32 {
+                // fill remaining steps
+                if micro_step >= idf.steps.len() as u32 {
                     raw_bytes.extend(&[0x00, 0x00, 0x00, 0x00]);
                     continue 'addr_loop;
                 }
@@ -673,14 +628,12 @@ fn assemble(instruction_defs: Vec<InstructionDef>) -> Vec<u8> {
                     ((control_word >> 8) & 0xff) as u8,
                     (control_word & 0xff) as u8,
                 ];
-                println!("{} {:?}", addr, control_bytes);
 
                 raw_bytes.extend(control_bytes);
-                continue;
+                continue 'addr_loop;
             }
-            // if nothing is defined add zeroes
-            raw_bytes.extend(&[0x00, 0x00, 0x00, 0x00]);
         }
+        raw_bytes.extend(&[0x00, 0x00, 0x00, 0x00]);
     }
 
     raw_bytes
