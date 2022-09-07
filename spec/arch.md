@@ -131,7 +131,7 @@ C - flags(2b)
 D - micro step(4b)
 ```
 
-The individual micro-steps fetched from the ROM are executed in order using a 4bit counter allowing a maximum of 16 steps. The micro code consists of 32-bit values specifying which control signals have to be enabled.
+The individual micro-steps fetched from the ROM are executed in order using a 4bit counter allowing a maximum of 16 steps. The micro code consists of 40-bit values specifying which control signals have to be enabled.
 
 ## 5. Interfaces
 
@@ -183,65 +183,67 @@ NAME \<destination\>  \<source\>
 ### Control signals
 
 **General**
-- HLT = halt the computer
-- IEND = end of instruction, reset the step counter
+- IEND ... end of instruction, reset the step counter
+- HLT ... halt the computer
 
 **Program Counter**
-- PCE = enable PC
-- PCO = output data in PC to the address BUS
-- PCJ = set the PC to the address on the address BUS
+- PCI ... increment Program Counter
+- PCO ... output data in the Program Counter to the address BUS
+- PCJ ... set the Program Counter to the address on the address BUS
+
+
+**Stack Pointer**
+- SPI ... set Stack Pointer to the value on the data BUS
+- SPO ... output Stack Pointer to the data BUS
+
 
 **Registers**
-- AI = set A to the data on the data BUS
-- AO = output data in A to the data BUS
-- BI = set B to the data on the data BUS
-- BO = output data in B to the data BUS
+- AI ... set A to the value on the data BUS
+- BI ... set B to the value on the data BUS
+- BO ... output B to the data BUS
+- HI ... set H to the value on the data BUS
+- HO ... output H to the data BUS
+- LI ... set L to the value on the data BUS
+- LO ... output L to the data BUS
+- HLO ... output H and L to the address BUS
+- HLI ... set H and L to the value on the address BUS
+- ARHI ... set H to the value on the data BUS
+- ARHO ... output H to the data BUS
+- ARLI ... set L to the value on the data BUS
+- ARLO ... output L to the data BUS
+- ARHLO ... output H and L to the address BUS
+
 
 **ALU**
-- RSO = output result of the operation to the data BUS
-- OPSUB = set ALU subtract
-- OPNOT = set ALU to NOT
-- OPNOR = set ALU to NOR
-- OPAND = set ALU to and
+- ALUO ... output the value in the ALU to the data BUS
+- OPADD ... set ALU to ADD
+- OPSUB ... set ALU to SUBTRACT
+- OPNOT ... set ALU to NOT
+- OPNAND ... set ALU to NAND
+- OPSR ... set ALU to SHIFT RIGHT
+- INCE ... enables the Incrementer
+- DEC ... sets the Incrementer to decrement
+- INCI ... set the Incrementer to the value on the data BUS
+- INCO ... output the value in the Incrementer to the data BUS
 
 **Flags**
-- FI = set the flags register to the 4lsb of the data BUS
-- FO = output the flags register to the 4lsb of the data BUS
+- FI ... set the flags register to the 4lsb of the data BUS
+- FO ... output the flags register to the 4lsb of the data BUS
 
 **Memory**
-- MI = set the MAR to the address on the address BUS
-- RI = store the data on the data BUS to memory
-- RO = output data in memory to the data BUS
-- INI = store byte on the data BUS to the instruction register
-- HI = store the byte on the data BUS to the H register
-- HO = output the byte in the H register to the data BUS
-- LI = store the byte on the data BUS to the L register
-- LO = output the byte in the L register to the data BUS
-- DVE = enable the device logic to access the data BUS
-- DVW = if high the data from the device will be put on the data BUS, if low data from the data BUS will be sent to the device
+- MI ... store value on the data BUS to memory
+- MO ... output value in memory to the data BUS
+- INI ... store value on the data BUS to the instruction register
 
+**Interfaces**
+- DVE ... enable the device logic to access the data BUS
+- DVW ... if high the data from the device will be put on the data BUS, if low data from the data BUS will be sent to the device
+
+**Address injection**
+- _RAMSTART ... sets the address BUS to the first address in RAM
+- _SPSTART ... sets the address BUS to the first address of the Stack (Note: this is relative to _RAMSTART, so both signals need to be active for _SPSTART to work)
 ##
-### Instruction set
 
-| **opcode** | **mnemonic** | **arg 1** | **arg 2** | **operation** | **description** |
-| --- | --- | --- | --- | --- | --- |
-| 0x01 | NOP | - | - | - | Doesn't do anything |
-| 0x02 | ADC | addr/imm8/imm16 | - | RAX = RAX + RBX + C | Load A1 into RBX. Add RBX and the carry bit to RAX. |
-|      | ADD | addr/imm8/imm16 | - | RAX = RAX + RBX | Load A1 into RBX. Add RBX to RAX.. |
-|      | SUB | addr/imm8/imm16 | - | RAX = RAX - RBX | Load A1 into RBX. Subtract RBC from RAX. |
-|      | SBC | addr/imm8/imm16 | - | RAX = RAX - RBX - C | Load A1 into RBX. Subtract RBC and the carry bit from RAX. |
-|      | INC | %r/addr/imm16 | - | A1++ | Increments A1. |
-|      | DEC | %r/addr/imm16 | - | A1– | Decrements A1. |
-|      | CMP | [addr]/imm8/imm16 | - | A1 == RAX -\> Eq, A1 \< RAX -\> Ls | Sets a flag: Eq = equals, Ls |= less based on the result of a comparison. |
-|      | JMP | addr | - | PC = A1 | Sets the Program Counter to A1. |
-|      | JC | addr | - | C == 1 -\> PC = A1 | Sets the Program Counter to A1 if the carry |flag is set. |
-|      | JZ | addr | - | S == 0 -\> PC = A1 | Set the Program Counter to A1 if the zero |flag is set 0. |
-|      | MW | addr | [addr]/imm8 | A1 = A2 | Copies one byte from A1 to A2. |
-|      | STA | addr | - | A1 = A2 | Copies value from a register A2 to a memory location A1. |
-|      | LDA | [addr]/imm8/imm16 | - | | Stores a byte in the register A1. |
-|      | NOT |
-|      | AND |
-|      | HLT |
 
 ## 8. Programming
 
@@ -268,6 +270,17 @@ Literals: literals prefixed with $
 - [%rax] - get value at address/register
 - literal values:
   - $100 - literal value 100
+
+
+
+indirect addressing test
+fetch_args
+read memory and store in H
+increment
+read memory and store in L
+read memory with HL and use value
+
+
 
 
 

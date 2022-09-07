@@ -17,9 +17,9 @@ use crate::disasm::disassembler;
 pub const COMMENT_IDENT: char = ';';
 
 pub const CONTROL_SIGNALS: &[&'static str] = &[
-    "IEND", "HLT", "PCE", "PCO", "PCJ", "AI", "AO", "BI", "BO", "RSO", "OPADD", "OPSUB", "OPNOT",
-    "OPNAND", "OPSR", "FI", "FO", "MI", "MO", "INI", "ARHI", "ARHO", "ARLI", "ARLO", "ARHLO", "HI",
-    "HO", "LI", "LO", "HLO", "HLI", "DVE", "DVW",
+    "IEND", "HLT", "PCI", "PCO", "PCJ", "SPI", "SPO", "AI", "BI", "BO", "HI", "HO", "LI",
+    "LO", "HLO", "HLI", "ARHI", "ARHO", "ARLI", "ARLO", "ARHLO", "ALUO", "OPADD", "OPSUB", "OPNOT",
+    "OPNAND", "OPSR", "INCE", "DEC", "INCI", "INCO", "FI", "FO", "MI", "MO", "INI", "DVE", "DVW", "RAMSTART", "SPSTART"
 ];
 
 // constants
@@ -35,8 +35,10 @@ pub const MAX_MICRO_STEP_COUNT: usize = 16;
 
 pub const FLAGS: [&'static str; FLAGS_BIT_SIZE as usize] = ["CARRY", "ZERO"];
 
+pub const CONTROL_BYTES: usize = 5; 
+
 // the values are exponents
-pub type MicroStep = Vec<u32>;
+pub type MicroStep = Vec<u64>;
 
 pub struct MacroDef {
     name: String,

@@ -309,7 +309,16 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                     is_defining_macro = true;
                 }
                 "if" => {
+                    if args.len() != 1 || args[0].len() == 0 {
+                        return Err(SyntaxError::new(
+                            *real_line,
+                            format!("Condition not provided."),
+                        ));
+                    }
+
                     let flag_name = args[0].trim().to_lowercase();
+
+                    let is_inverted = flag_name.chars().next().unwrap() == '!';
 
                     // check if a flag with this name exists
                     let flg_idx = FLAGS.iter().position(|&f| f.to_lowercase() == flag_name);
@@ -325,10 +334,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                     let flag = 2_u32.pow(flg_idx.unwrap() as u32);
 
                     // push this conditional to the top of the conditional stack
-                    let conditional = Conditional {
-                        flag,
-                        is_inverted: false,
-                    };
+                    let conditional = Conditional { flag, is_inverted };
                     conditional_stack.push_back(conditional);
                 }
                 "end" => {
@@ -354,7 +360,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
 
                     // invert the last conditional
                     let mut last_conditional = conditional_stack.back_mut().unwrap();
-                    last_conditional.is_inverted = true;
+                    last_conditional.is_inverted = !last_conditional.is_inverted;
                 }
                 "pref" => {
                     is_defining_pref = true;
@@ -373,7 +379,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
             },
             LineType::StepLine(words) => {
                 // store all the control signals for this step
-                let mut control_signals = Vec::new();
+                let mut control_signals: Vec<u64> = Vec::new();
 
                 // store the additional steps added by a macro
                 let mut macro_steps = Vec::new();
@@ -388,7 +394,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                     let macro_exists = macro_def.is_some();
 
                     if signal_exists {
-                        control_signals.push(signal_idx.unwrap() as u32);
+                        control_signals.push(signal_idx.unwrap() as u64);
                     } else {
                         if macro_exists {
                             let macro_def = macro_def.unwrap();
@@ -457,13 +463,13 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                         get_instruction_by_name(&current_instruction.first().unwrap().name)
                             .unwrap()
                             .2;
-							
+
                     // filter out, what definitions should be affected
                     let matches_conditions = |inm: &u32, fgs: u32| -> bool {
-						if (available_ims & inm) == 0 {
-							return false;
-						}
-						
+                        if (available_ims & inm) == 0 {
+                            return false;
+                        }
+
                         if let Some(im) = currently_defined_im.clone() {
                             if im != *inm {
                                 return false;
@@ -567,8 +573,8 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                 return Err(SyntaxError::new(
                     tokens.last().unwrap().0,
                     format!(
-                        "Invalid instruction definition, maximum step count is {}. The added suffix has brought the step count over the limit.",                        MAX_MICRO_STEP_COUNT
-                    ),
+                        "Invalid instruction definition, maximum step count is {}. The added suffix has brought the step count over the limit.", MAX_MICRO_STEP_COUNT
+					),
                 ));
             }
         }
@@ -610,20 +616,21 @@ fn assemble(instruction_defs: Vec<InstructionDef>) -> Vec<u8> {
             if flags_match && instruction_modes_match && opcodes_match {
                 // fill remaining steps
                 if micro_step >= idf.steps.len() as u32 {
-                    raw_bytes.extend(&[0x00, 0x00, 0x00, 0x00]);
+                    raw_bytes.extend(&[0x00, 0x00, 0x00, 0x00, 0x00]);
                     continue 'addr_loop;
                 }
                 let micro_step_csignals = idf.steps.get(micro_step as usize).unwrap();
 
                 // construct the control word
-                let mut control_word = 0;
+                let mut control_word: u64 = 0;
                 for cl in micro_step_csignals {
-                    control_word |= 2_u32.pow(*cl);
+                    control_word |= 2_u64.pow(*cl as u32);
                 }
 
                 // split the control word into four bytes
                 let control_bytes = &[
-                    (control_word >> 24) as u8,
+                    (control_word >> 32) as u8,
+                    ((control_word >> 24) & 0xff) as u8,
                     ((control_word >> 16) & 0xff) as u8,
                     ((control_word >> 8) & 0xff) as u8,
                     (control_word & 0xff) as u8,
@@ -633,7 +640,7 @@ fn assemble(instruction_defs: Vec<InstructionDef>) -> Vec<u8> {
                 continue 'addr_loop;
             }
         }
-        raw_bytes.extend(&[0x00, 0x00, 0x00, 0x00]);
+        raw_bytes.extend(&[0x00, 0x00, 0x00, 0x00, 0x00]);
     }
 
     raw_bytes

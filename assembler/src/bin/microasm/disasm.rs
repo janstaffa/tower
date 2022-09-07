@@ -2,7 +2,7 @@ use std::{fs::File, io::Write};
 
 use tower_assembler::{get_im_name, read_file_binary, AssemblerError, INSTRUCTIONS};
 
-use crate::{InstructionDef, CONTROL_SIGNALS};
+use crate::{InstructionDef, CONTROL_SIGNALS, CONTROL_BYTES};
 
 pub fn disassembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError> {
     let input = read_file_binary(file_in)?;
@@ -69,20 +69,20 @@ pub fn disassembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError>
 
 /// Takes a vector of bytes containing the microcode and generates instruction definitions for it
 fn disassemble(input_bytes: Vec<u8>) -> Result<Vec<InstructionDef>, AssemblerError> {
-    if input_bytes.len() % 4 != 0 {
+    if input_bytes.len() % CONTROL_BYTES != 0 {
         return Err(AssemblerError::new(
             String::from("Invalid Tower microassembly code"),
             None,
         ));
     }
 
-    let code_len = (input_bytes.len() / 4) as u32;
+    let code_len = (input_bytes.len() / CONTROL_BYTES) as u32;
 
     let mut output: Vec<InstructionDef> = Vec::new();
     let mut current_instruction: Option<InstructionDef> = None;
 
     for addr in 0..code_len {
-        let abs_byte = (addr * 4) as usize;
+        let abs_byte = (addr * CONTROL_BYTES as u32) as usize;
 
         // get individual components of the address
         let opcode = addr >> 9;
@@ -97,20 +97,20 @@ fn disassemble(input_bytes: Vec<u8>) -> Result<Vec<InstructionDef>, AssemblerErr
         }
         let ins_signature = ins_signature.unwrap();
 
-        let mut found_csignals: Vec<u32> = Vec::new();
-        let mut control_bytes = input_bytes[abs_byte..(abs_byte + 4)].to_vec();
+        let mut found_csignals: Vec<u64> = Vec::new();
+        let mut control_bytes = input_bytes[abs_byte..(abs_byte + CONTROL_BYTES)].to_vec();
 
         // convert to little endian
         control_bytes.reverse();
 
         // construct the control word
-        let mut control_word: u32 = 0;
+        let mut control_word: u64 = 0;
         for (i, cb) in control_bytes.iter().enumerate() {
-            control_word |= (*cb as u32) << (i * 8);
+            control_word |= (*cb as u64) << (i * 8);
         }
 
         for (i, _cs) in CONTROL_SIGNALS.iter().enumerate() {
-            let cs_val = 2_u32.pow(i as u32);
+            let cs_val = 2_u64.pow(i as u32);
             if (control_word & cs_val) != 0 {
                 found_csignals.push(cs_val);
             }

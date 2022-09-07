@@ -1,12 +1,30 @@
-#macro FETCH_ARGS
-MO ARLI
-PCE
+#pref
+; fetch the instruction
+PCO MO INI
+PCI
+
+#suf
+IEND
+
+#macro FETCH_LOW
+PCO MO ARLI
+PCI
+
+#macro FETCH_HIGH
 PCO MO ARHI
-PCE
+PCI
+
+
+#macro FETCH_ARGS
+FETCH_HIGH
+FETCH_LOW
+
+
+#def NOP
+IEND
 
 
 #def LDA
-MO
 abs:
 	FETCH_ARGS
 
@@ -16,9 +34,9 @@ abs:
 imm:
 	; get value from memory and store in B
 	PCO MO BI
-	PCE
+	PCI
 
-	OPADD RSO AI
+	OPADD ALUO AI
 
 
 #def HLT
@@ -28,4 +46,11 @@ HLT
 const:
 	FETCH_ARGS
 
-	AO ARHLO MI
+	ALUO ARHLO MI
+
+
+#def JMP
+const:
+	FETCH_ARGS
+
+	ARHLO PCJ
