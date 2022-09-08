@@ -1,22 +1,26 @@
-    ; this is a comment
-    #macro TEST
-    PCE PCO
-    #pref
-    HLT
-    #suf
-    PCJ IEND
-    
-    ; a comment in the middle of nowhere
-    #def ADD
-    IEND, HLT, PCE, PCO, PCJ, AI, AO, BI, BO
-    imm:
-        OPSUB
-        #if carry
-            HLT IEND TEST
-            #if zero
-                DVE OPADD
-            #end
-        #else
-            DVE DVW
-        #end
-        OPSR
+#include "test2.asm"
+
+#macro 
+CLC:
+    TFA
+    NAND 0b1110
+    NOTA
+    TAF 
+
+#macro
+ADD_16 $1, $2, $3, $4:
+    LDA *$1
+    ADD *$2
+    STA $1
+
+    LDA *$3
+    ADD *$4
+    STA $2
+
+
+
+.label1:
+
+
+
+.label2

@@ -1,8 +1,8 @@
 use std::{fs::File, io::Write};
 
-use tower_assembler::{get_im_name, read_file_binary, AssemblerError, INSTRUCTIONS};
+use crate::{get_im_name, read_file_binary, AssemblerError, INSTRUCTIONS};
 
-use crate::{InstructionDef, CONTROL_SIGNALS, CONTROL_BYTES};
+use crate::microasm::{InstructionDef, CONTROL_SIGNALS, CONTROL_BYTES};
 
 pub fn disassembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError> {
     let input = read_file_binary(file_in)?;

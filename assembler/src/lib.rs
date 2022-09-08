@@ -1,6 +1,9 @@
 use std::fs::File;
 use std::io::prelude::*;
 
+pub mod microasm;
+pub mod asm;
+
 pub const IM_IMPLIED: u32 = 1 << 0;
 pub const IM_IMMEDIATE: u32 = 1 << 1;
 pub const IM_CONSTANT: u32 = 1 << 2;

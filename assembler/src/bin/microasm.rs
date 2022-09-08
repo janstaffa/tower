@@ -2,77 +2,8 @@ use std::fs::File;
 
 use chrono::Utc;
 use clap::Parser;
-use tower_assembler::AssemblerError;
 
-mod asm;
-use crate::asm::assembler;
-
-mod disasm;
-use crate::disasm::disassembler;
-
-// ==============================================
-// =             SHARED DEFINITIONS             =
-// ==============================================
-
-pub const COMMENT_IDENT: char = ';';
-
-pub const CONTROL_SIGNALS: &[&'static str] = &[
-    "IEND", "HLT", "PCI", "PCO", "PCJ", "SPI", "SPO", "AI", "BI", "BO", "HI", "HO", "LI",
-    "LO", "HLO", "HLI", "ARHI", "ARHO", "ARLI", "ARLO", "ARHLO", "ALUO", "OPADD", "OPSUB", "OPNOT",
-    "OPNAND", "OPSR", "INCE", "DEC", "INCI", "INCO", "FI", "FO", "MI", "MO", "INI", "DVE", "DVW", "RAMSTART", "SPSTART"
-];
-
-// constants
-pub const STEP_COUNTER_BIT_SIZE: u32 = 4;
-pub const INSTRUCTION_MODE_BIT_SIZE: u32 = 3;
-pub const FLAGS_BIT_SIZE: u32 = 2;
-
-pub const INSTRUCTION_MODE_COUNT: usize = 8;
-pub const FLAG_COMBINATIONS: usize = 4;
-pub const TOTAL_DEF_COMBINATIONS: usize = INSTRUCTION_MODE_COUNT * FLAG_COMBINATIONS;
-
-pub const MAX_MICRO_STEP_COUNT: usize = 16;
-
-pub const FLAGS: [&'static str; FLAGS_BIT_SIZE as usize] = ["CARRY", "ZERO"];
-
-pub const CONTROL_BYTES: usize = 5; 
-
-// the values are exponents
-pub type MicroStep = Vec<u64>;
-
-pub struct MacroDef {
-    name: String,
-    steps: Vec<MicroStep>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct InstructionDef {
-    name: String,
-    instruction_mode: u32,
-    flags: u32,
-    steps: Vec<MicroStep>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct TokenizedLine(u32, LineType);
-
-#[derive(Debug, PartialEq)]
-pub enum LineType {
-    // name, args
-    KeyLine(String, Vec<String>),
-    // words
-    StepLine(Vec<String>),
-    // name of the label
-    LabelLine(String),
-}
-
-#[derive(Debug, Clone)]
-pub struct Conditional {
-    flag: u32,
-    is_inverted: bool,
-}
-
-// ==============================================
+use tower_assembler::{microasm::{asm::assembler, disasm::disassembler}, AssemblerError};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]

@@ -249,36 +249,7 @@ NAME \<destination\>  \<source\>
 
 The computer can be programmed in the Tower assembly language compiled using the Tower assembler.
 
-The assembly language uses syntax described below.
-
-**Assembly syntax**
-
-Registers: registers are prefixed with%
-
-Literals: literals prefixed with $
-
-- radixes: 0x -\> hex
-
-0b -\> binary
-
-\_ -\> decimal
-
-- pointers:
-  - %rax - pointer register (rax)
-  - 100 - pointer to address (100)
-
-- [%rax] - get value at address/register
-- literal values:
-  - $100 - literal value 100
-
-
-
-indirect addressing test
-fetch_args
-read memory and store in H
-increment
-read memory and store in L
-read memory with HL and use value
+The assembler uses syntax described in the [assembler docs](/assembler/docs/asm.md)
 
 
 

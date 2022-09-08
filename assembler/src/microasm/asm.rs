@@ -2,12 +2,12 @@ use regex::Regex;
 use std::io::Write;
 use std::mem::MaybeUninit;
 use std::{collections::VecDeque, fs::File};
-use tower_assembler::{
+use crate::{
     get_instruction_by_name, read_file, AssemblerError, SyntaxError, IM_ABSOLUTE, IM_CONSTANT,
     IM_IMMEDIATE, IM_IMPLIED, IM_INDIRECT, IM_REGA, IM_REGB, IM_ZEROPAGE, INSTRUCTIONS,
 };
 
-use crate::{
+use crate::microasm::{
     Conditional, InstructionDef, LineType, MacroDef, MicroStep, TokenizedLine, COMMENT_IDENT,
     CONTROL_SIGNALS, FLAGS, FLAGS_BIT_SIZE, FLAG_COMBINATIONS, INSTRUCTION_MODE_BIT_SIZE,
     INSTRUCTION_MODE_COUNT, MAX_MICRO_STEP_COUNT, STEP_COUNTER_BIT_SIZE, TOTAL_DEF_COMBINATIONS,
@@ -320,6 +320,9 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
 
                     let is_inverted = flag_name.chars().next().unwrap() == '!';
 
+                    let flag_name = if is_inverted {flag_name[1..].to_string()} else {flag_name};
+
+                    
                     // check if a flag with this name exists
                     let flg_idx = FLAGS.iter().position(|&f| f.to_lowercase() == flag_name);
 
