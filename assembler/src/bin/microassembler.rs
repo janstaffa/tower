@@ -2,8 +2,7 @@ use std::fs::File;
 
 use chrono::Utc;
 use clap::Parser;
-
-use tower_assembler::{microasm::{asm::assembler, disasm::disassembler}, AssemblerError};
+use tower_assembler::{AssemblerError, microasm::{asm::assembler, disasm::disassembler}};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]

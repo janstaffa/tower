@@ -20,7 +20,7 @@ pub fn assembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError> {
         Ok(t) => t,
         Err(e) => {
             return Err(AssemblerError::new(
-                String::from("Assembly failed at tokenization step"),
+                String::from("Assembly failed at tokenization step."),
                 Some(e),
             ))
         }
@@ -31,7 +31,7 @@ pub fn assembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError> {
         Ok(idf) => idf,
         Err(e) => {
             return Err(AssemblerError::new(
-                String::from("Assembly failed at parsing step"),
+                String::from("Assembly failed at parsing step."),
                 Some(e),
             ))
         }
@@ -78,7 +78,7 @@ fn tokenize(code: String) -> Result<Vec<TokenizedLine>, SyntaxError> {
             if line.chars().count() == 1 {
                 return Err(SyntaxError::new(
                     real_line,
-                    String::from("No keyword was specified"),
+                    String::from("No keyword was specified."),
                 ));
             }
 
@@ -113,7 +113,7 @@ fn tokenize(code: String) -> Result<Vec<TokenizedLine>, SyntaxError> {
     }
 
     if tokenized_lines.len() == 0 {
-        return Err(SyntaxError::new(0, String::from("No code was found")));
+        return Err(SyntaxError::new(0, String::from("No code was found.")));
     }
 
     Ok(tokenized_lines)
@@ -201,7 +201,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                     if args.len() == 0 {
                         return Err(SyntaxError::new(
                             *real_line,
-                            String::from("Instruction name not provided"),
+                            String::from("Instruction name not provided."),
                         ));
                     }
 

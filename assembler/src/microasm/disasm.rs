@@ -2,7 +2,7 @@ use std::{fs::File, io::Write};
 
 use crate::{get_im_name, read_file_binary, AssemblerError, INSTRUCTIONS};
 
-use crate::microasm::{InstructionDef, CONTROL_SIGNALS, CONTROL_BYTES};
+use crate::microasm::{InstructionDef, CONTROL_BYTES, CONTROL_SIGNALS};
 
 pub fn disassembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError> {
     let input = read_file_binary(file_in)?;
@@ -71,7 +71,7 @@ pub fn disassembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError>
 fn disassemble(input_bytes: Vec<u8>) -> Result<Vec<InstructionDef>, AssemblerError> {
     if input_bytes.len() % CONTROL_BYTES != 0 {
         return Err(AssemblerError::new(
-            String::from("Invalid Tower microassembly code"),
+            String::from("Invalid Tower microassembly code."),
             None,
         ));
     }

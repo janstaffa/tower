@@ -2,7 +2,7 @@ use std::fs::File;
 
 use chrono::Utc;
 use clap::Parser;
-use tower_assembler::AssemblerError;
+use tower_assembler::{asm::asm::assembler, AssemblerError};
 
 // use tower_assembler::asm
 
@@ -40,6 +40,7 @@ fn main() {
 }
 
 fn run() -> Result<(), AssemblerError> {
+    assembler("examples/test.asm", "test.bin").unwrap();
     let args = Args::parse();
 
     let input_file_path = &args.r#in;

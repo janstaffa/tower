@@ -30,4 +30,4 @@
 |  0x1a  |   TAB    |        Imp        |             B = A             |                        Transfers value in A to B.                        |
 |  0x1b  |   TFA    |        Imp        |             A = F             |                        Transfers value in F to A.                        |
 |  0x1c  |   TAF    |        Imp        |             F = A             |                        Transfers value in A to F.                        |
-|  0x1f  |   HLT    |        Imp        |               -               |                           Halts the computer.                            |
+|  0x1d  |   HLT    |        Imp        |               -               |                           Halts the computer.                            |

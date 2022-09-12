@@ -1,19 +1,20 @@
 use std::fs::File;
 use std::io::prelude::*;
 
-pub mod microasm;
 pub mod asm;
+pub mod microasm;
 
-pub const IM_IMPLIED: u32 = 1 << 0;
-pub const IM_IMMEDIATE: u32 = 1 << 1;
-pub const IM_CONSTANT: u32 = 1 << 2;
-pub const IM_ABSOLUTE: u32 = 1 << 3;
-pub const IM_INDIRECT: u32 = 1 << 4;
-pub const IM_ZEROPAGE: u32 = 1 << 5;
-pub const IM_REGA: u32 = 1 << 6;
-pub const IM_REGB: u32 = 1 << 7;
+pub type InstructionMode = u32;
+pub const IM_IMPLIED: InstructionMode = 1 << 0;
+pub const IM_IMMEDIATE: InstructionMode = 1 << 1;
+pub const IM_CONSTANT: InstructionMode = 1 << 2;
+pub const IM_ABSOLUTE: InstructionMode = 1 << 3;
+pub const IM_INDIRECT: InstructionMode = 1 << 4;
+pub const IM_ZEROPAGE: InstructionMode = 1 << 5;
+pub const IM_REGA: InstructionMode = 1 << 6;
+pub const IM_REGB: InstructionMode = 1 << 7;
 
-pub fn get_im_name(im: u32) -> Result<&'static str, ()> {
+pub fn get_im_name(im: InstructionMode) -> Result<&'static str, ()> {
     let im_v = 1 << im;
     let im = match im_v {
         IM_IMPLIED => "Implied",
@@ -29,27 +30,38 @@ pub fn get_im_name(im: u32) -> Result<&'static str, ()> {
     Ok(im)
 }
 
+const IM_IMM_ABS_ZP_IND: u32 = IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE | IM_INDIRECT;
 pub type Instruction = (&'static str, u32);
 pub static INSTRUCTIONS: &[Instruction] = &[
     ("NOP", IM_IMPLIED),
-    ("LDA", IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
+    ("LDA", IM_IMM_ABS_ZP_IND),
     ("STA", IM_CONSTANT),
+    ("ADC", IM_IMM_ABS_ZP_IND),
+    ("ADD", IM_IMM_ABS_ZP_IND),
+    ("SBB", IM_IMM_ABS_ZP_IND),
+    ("SUB", IM_IMM_ABS_ZP_IND),
+    ("INC", IM_CONSTANT | IM_REGA | IM_REGB),
+    ("DEC", IM_CONSTANT | IM_REGA | IM_REGB),
+    ("CMP", IM_IMM_ABS_ZP_IND),
+    ("JMP", IM_CONSTANT),
+    ("JC", IM_CONSTANT),
+    ("JZ", IM_CONSTANT),
+    ("JNZ", IM_CONSTANT),
+    ("NOTA", IM_IMPLIED),
+    ("NAND", IM_IMM_ABS_ZP_IND),
+    ("SRA", IM_IMPLIED),
+    ("SLA", IM_IMPLIED),
+    ("JSR", IM_CONSTANT),
+    ("RTS", IM_IMPLIED),
+    ("TBA", IM_IMPLIED),
+    ("PSA", IM_IMPLIED),
+    ("PSF", IM_IMPLIED),
+    ("POA", IM_IMPLIED),
+    ("POF", IM_IMPLIED),
     ("TBA", IM_IMPLIED),
     ("TAB", IM_IMPLIED),
     ("TFA", IM_IMPLIED),
     ("TAF", IM_IMPLIED),
-    ("JMP", IM_CONSTANT),
-    ("JZ", IM_CONSTANT),
-    ("JC", IM_CONSTANT),
-    ("ADD", IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
-    ("ADC", IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
-    ("SUB", IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
-    ("NOT", IM_IMPLIED | IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
-    ("NAND", IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
-    ("SRA", IM_IMPLIED | IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
-    ("SLA", IM_IMPLIED | IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
-    ("RB", IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
-    ("WB", IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE),
     ("HLT", IM_IMPLIED),
 ];
 
