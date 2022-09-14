@@ -51,7 +51,7 @@ fn tokenize(code: String) -> Result<Vec<TokenizedLine>, SyntaxError> {
         let real_line = line_idx as u32 + 1;
         let line = line.trim();
 
-        // check for comments and remove if found
+        // check for comments and remove if
         let comment_idx = line.chars().position(|c| c == COMMENT_IDENT);
         let line = if let Some(idx) = comment_idx {
             line[0..idx].trim().to_string()
@@ -155,8 +155,7 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
     let mut current_address = 0;
 
     for t in tokens {
-        let (line_idx, token) = (t.0, t.1);
-        let real_line = line_idx + 1;
+        let (real_line, token) = (t.0, t.1);
 
         match token {
             Token::Instruction(name, args) => {
@@ -172,7 +171,6 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
 
                 let mut parsed_args = Vec::new();
                 for arg in &args {
-                    let arg = &args[0];
                     let im = match analyze_arg(arg) {
                         Ok(im) => im,
                         Err(e) => return Err(SyntaxError::new(real_line, e)),
@@ -218,6 +216,7 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
                 }
 
                 let ins = get_instruction_by_name(&name);
+
                 // check if this instruction exists
                 if ins.is_some() {
                     if args.len() > 1 {
@@ -233,7 +232,7 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
                         (IM_IMPLIED, None)
                     };
 
-                    if instruction_mode == 0 && !is_defining_macro {
+                    if instruction_mode == 0 && !matches!(argument, Some(Argument::Implicit(_))) {
                         return Err(SyntaxError::new(
                             real_line,
                             format!("No mode identifier specified for '{}'.", name),
@@ -261,7 +260,9 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
                             }
                         }
 
-                        current_macro.instructions.push((new_instruction, real_line, vec![current_macro.name.clone()]));
+                        current_macro
+                            .instructions
+                            .push((new_instruction, real_line, Vec::new()));
                     } else {
                         instructions.push(new_instruction);
                     }
@@ -306,6 +307,19 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
                             new_instruction.2.push(macro_def.name.clone());
                             new_instruction.0.argument = analyzed.1;
 
+                            if new_instruction.0.instruction_mode == 0 && !is_defining_macro {
+                                let mut trace = new_instruction.2.clone();
+                                trace.reverse();
+                                return Err(SyntaxError::new(
+                                    real_line,
+                                    format!(
+                                        "No mode identifier specified for '{}' on line {}. (macro trace: {})",
+                                        new_instruction.0.name,
+										new_instruction.1,
+                                        trace.join("->")
+                                    ),
+                                ));
+                            }
                             if new_instruction.0.instruction_mode == 0 {
                                 new_instruction.0.instruction_mode = analyzed.0;
                             }
@@ -317,13 +331,8 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
                             let current_macro = current_macro.as_mut().unwrap();
                             current_macro.instructions.extend(new_instructions);
 
-                            for arg in args {
-                                let argument = match parse_arg(&arg) {
-                                    Ok(a) => a,
-                                    Err(e) => return Err(SyntaxError::new(real_line, e)),
-                                };
-
-                                if let Some(Argument::Implicit(arg_idx)) = &argument {
+                            for arg in &parsed_args {
+                                if let Some(Argument::Implicit(arg_idx)) = &arg.1 {
                                     let exists =
                                         macro_def.args.iter().find(|&ma| *ma == *arg_idx).is_some();
 
@@ -333,7 +342,8 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
                                 }
                             }
                         } else {
-                            let only_instructions: Vec<Instruction> = new_instructions.iter().map(|i| i.0.clone()).collect();
+                            let only_instructions: Vec<Instruction> =
+                                new_instructions.iter().map(|i| i.0.clone()).collect();
                             instructions.extend(only_instructions);
                         }
                     } else {

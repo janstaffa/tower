@@ -8,12 +8,12 @@ TAF
 #end
 
 #macro TEST
-ADD #$1
+ADD $1
 JMP &0xF0F0
 #end
 
 #macro ADD_16
-TEST $1
+TEST #$1
 #end
 
 #macro ADD_17
@@ -25,18 +25,17 @@ TEST $1
 ; VARIABLE = #200
 
 #macro ADD_INLINE
- LDA $1
- ADD $2
+ ADD_17 $1, $2
  STA &$3
 #end
 
 label1:
- ADD_INLINE *0x10, #10, &0x01
+ ADD_INLINE 0x10, #10, &0x0001
 
 
  ADD_17 @0xff, %A
 
- ADD 0x000f
+; ADD 0x000f
  
  LDA #10
  ADD #15
@@ -56,4 +55,4 @@ label1:
 label2:
 
 
- ADD 0x255
+; ADD 0x255
