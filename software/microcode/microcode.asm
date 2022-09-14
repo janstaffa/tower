@@ -24,7 +24,11 @@ FETCH_LOW
 IEND
 
 
+
 #def LDA
+imm:
+	PCO MO AI
+	PCI
 abs:
 	FETCH_ARGS
 
@@ -36,7 +40,7 @@ imm:
 	PCO MO BI
 	PCI
 
-	OPADD ALUO AI
+	OPADD FI ALUO AI
 
 
 #def HLT
@@ -48,9 +52,40 @@ const:
 
 	ALUO ARHLO MI
 
+ind:
+	FETCH_ARGS
+
+	ARHLO MO HI
+
+	ARLO INCI
+	INCE INCO ARLI
+
+	#if incarry
+		ARHO INCI
+		INCE INCO ARHI
+	#end
+
+	ARHLO MO LI
+
+	HLO ALUO MI
+
+
+
 
 #def JMP
 const:
 	FETCH_ARGS
 
 	ARHLO PCJ
+
+
+
+#def JC
+const:
+	#if carry
+		FETCH_ARGS
+		ARHLO PCJ
+	#else
+		PCI
+		PCI
+	#end

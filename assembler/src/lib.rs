@@ -5,17 +5,29 @@ pub mod asm;
 pub mod microasm;
 
 pub type InstructionMode = u32;
-pub const IM_IMPLIED: InstructionMode = 1 << 0;
-pub const IM_IMMEDIATE: InstructionMode = 1 << 1;
-pub const IM_CONSTANT: InstructionMode = 1 << 2;
-pub const IM_ABSOLUTE: InstructionMode = 1 << 3;
-pub const IM_INDIRECT: InstructionMode = 1 << 4;
-pub const IM_ZEROPAGE: InstructionMode = 1 << 5;
-pub const IM_REGA: InstructionMode = 1 << 6;
-pub const IM_REGB: InstructionMode = 1 << 7;
+
+pub const fn im_idx_to_val(idx: u32) -> u32 {
+	1 << idx
+}
+pub const IM_IMPLIED: InstructionMode = im_idx_to_val(0);
+pub const IM_IMMEDIATE: InstructionMode = im_idx_to_val(1);
+pub const IM_CONSTANT: InstructionMode = im_idx_to_val(2);
+pub const IM_ABSOLUTE: InstructionMode = im_idx_to_val(3);
+pub const IM_INDIRECT: InstructionMode = im_idx_to_val(4);
+pub const IM_ZEROPAGE: InstructionMode = im_idx_to_val(5);
+pub const IM_REGA: InstructionMode = im_idx_to_val(6);
+pub const IM_REGB: InstructionMode = im_idx_to_val(7);
+
+pub const fn get_argument_size_by_im(im: InstructionMode) -> u32 {
+	match im {
+		IM_ABSOLUTE | IM_CONSTANT | IM_INDIRECT => 2,
+		IM_IMMEDIATE | IM_ZEROPAGE => 1,
+		_ => 0,
+	}
+}
 
 pub fn get_im_name(im: InstructionMode) -> Result<&'static str, ()> {
-    let im_v = 1 << im;
+    let im_v = im_idx_to_val(im);
     let im = match im_v {
         IM_IMPLIED => "Implied",
         IM_IMMEDIATE => "Immediate",
@@ -29,13 +41,24 @@ pub fn get_im_name(im: InstructionMode) -> Result<&'static str, ()> {
     };
     Ok(im)
 }
+pub fn get_available_im_names(ims: u32) -> Vec<String> {
+    let mut output = Vec::new();
+    for i in 0..8 {
+        let checking_im = im_idx_to_val(i);
+        if (ims & checking_im) != 0 {
+            let name = get_im_name(i).unwrap().to_string();
+            output.push(name);
+        }
+    }
+    output
+}
 
 const IM_IMM_ABS_ZP_IND: u32 = IM_IMMEDIATE | IM_ABSOLUTE | IM_ZEROPAGE | IM_INDIRECT;
 pub type Instruction = (&'static str, u32);
 pub static INSTRUCTIONS: &[Instruction] = &[
     ("NOP", IM_IMPLIED),
     ("LDA", IM_IMM_ABS_ZP_IND),
-    ("STA", IM_CONSTANT),
+    ("STA", IM_CONSTANT | IM_INDIRECT),
     ("ADC", IM_IMM_ABS_ZP_IND),
     ("ADD", IM_IMM_ABS_ZP_IND),
     ("SBB", IM_IMM_ABS_ZP_IND),

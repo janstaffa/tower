@@ -37,3 +37,16 @@ There are multiple radixes available in the assembler.
 | Indirect  | @      | ADD @0x00FF |
 | RegA/B    | %      | INC %A/B    |
 
+
+#### Argument arithmetic:
+0x00FF + 1
+
+
+
+### 2. Labels
+A) global labels
+B) scoped labels (in macros)
+
+
+
+

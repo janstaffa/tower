@@ -1,10 +1,11 @@
 use std::fs::File;
+use std::io::Write;
 
 use regex::Regex;
 
 use crate::{
-    get_instruction_by_name, microasm::COMMENT_IDENT, read_file, AssemblerError, SyntaxError,
-    IM_ABSOLUTE, IM_CONSTANT, IM_IMMEDIATE, IM_IMPLIED, IM_INDIRECT, IM_REGA, IM_REGB,
+    get_argument_size_by_im, get_available_im_names, get_im_name, get_instruction_by_name,
+    microasm::COMMENT_IDENT, read_file, AssemblerError, SyntaxError, IM_CONSTANT, IM_IMPLIED,
 };
 
 use super::{analyze_arg, parse_arg, Argument, Instruction, Label, MacroDef, Token, TokenizedLine};
@@ -21,7 +22,6 @@ pub fn assembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError> {
             ))
         }
     };
-    // println!("tokens {:?}", tokens);
 
     // parse
     let parsed = match parse(tokens) {
@@ -36,11 +36,11 @@ pub fn assembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError> {
     println!("parsed {:?}", parsed);
 
     // assemble
-    // let output = assemble(parsed);
+    let output = assemble(parsed);
 
     // write to output file
     let mut file = File::create(file_out).unwrap();
-    // file.write_all(&output).unwrap();
+    file.write_all(&output).unwrap();
     Ok(())
 }
 
@@ -85,7 +85,7 @@ fn tokenize(code: String) -> Result<Vec<TokenizedLine>, SyntaxError> {
             )
         }
         // the line is a label
-        else if let Some(':') = words[0].chars().last() {
+        else if let Some(':') = words.last().unwrap().chars().last() {
             if words.len() > 1 {
                 return Err(SyntaxError::new(
                     real_line,
@@ -97,11 +97,30 @@ fn tokenize(code: String) -> Result<Vec<TokenizedLine>, SyntaxError> {
             // remove the colon
             label_name.pop();
 
-            let re = Regex::new(r"[^a-zA-Z0-9]").unwrap();
+            if label_name.chars().count() == 0 {
+                return Err(SyntaxError::new(
+                    real_line,
+                    String::from("Invalid label name, name cannot be empty."),
+                ));
+            }
+
+            let re = Regex::new(r"[^a-zA-Z0-9_]").unwrap();
             if re.is_match(&label_name) {
                 return Err(SyntaxError::new(
                     real_line,
-                    format!("Invalid label name '{}'. Label name can only contain characters a-z or numbers.", label_name),
+                    format!("Invalid label name '{}'. Label name can only contain characters a-Z, numbers or the '_' symbol.", label_name),
+                ));
+            }
+
+            // check if first char is not a number
+            let first_char = label_name.chars().next().unwrap();
+            if first_char.is_digit(10) {
+                return Err(SyntaxError::new(
+                    real_line,
+                    format!(
+                        "Invalid label name '{}', label name has to start with a letter.",
+                        label_name
+                    ),
                 ));
             }
 
@@ -118,6 +137,12 @@ fn tokenize(code: String) -> Result<Vec<TokenizedLine>, SyntaxError> {
                     .collect();
 
                 for a in &args {
+                    if a.chars().count() == 0 {
+                        return Err(SyntaxError::new(
+                            real_line,
+                            String::from("Invalid argument, argument cannot be emty."),
+                        ));
+                    }
                     if a.contains(" ") {
                         return Err(SyntaxError::new(
 								real_line,
@@ -151,35 +176,44 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
     let mut current_macro_args: Vec<u32> = Vec::new();
 
     let mut labels: Vec<Label> = Vec::new();
+    let mut instructions_using_labels: Vec<(usize, u32)> = Vec::new();
 
     let mut current_address = 0;
 
+    // TODO: move argument parsing into tokenizer
     for t in tokens {
         let (real_line, token) = (t.0, t.1);
 
         match token {
             Token::Instruction(name, args) => {
-                let mut new_args = Vec::new();
-
                 // parse raw args to nice structures
-                for a in &args {
-                    match parse_arg(&a) {
-                        Ok(a) => new_args.push(a),
-                        Err(e) => return Err(SyntaxError::new(real_line, e)),
-                    }
-                }
-
                 let mut parsed_args = Vec::new();
+
                 for arg in &args {
-                    let im = match analyze_arg(arg) {
-                        Ok(im) => im,
-                        Err(e) => return Err(SyntaxError::new(real_line, e)),
-                    };
-                    let arg = match parse_arg(arg) {
+                    let parsed_arg = match parse_arg(arg) {
                         Ok(arg) => arg,
                         Err(e) => return Err(SyntaxError::new(real_line, e)),
                     };
-                    parsed_args.push((im, arg));
+
+                    let im = if let Some(Argument::Label(name)) = &parsed_arg {
+                        instructions_using_labels.push((instructions.len(), real_line));
+
+                        let re = Regex::new(r"[^a-zA-Z0-9_]").unwrap();
+                        if re.is_match(&name) {
+                            return Err(SyntaxError::new(
+								real_line,
+								format!("Invalid label name '{}'. Label name can only contain characters a-Z, numbers or the '_' symbol.", name),
+							));
+                        }
+                        IM_CONSTANT
+                    } else {
+                        match analyze_arg(arg) {
+                            Ok(im) => im,
+                            Err(e) => return Err(SyntaxError::new(real_line, e)),
+                        }
+                    };
+
+                    parsed_args.push((im, parsed_arg));
                 }
 
                 if is_defining_macro {
@@ -232,17 +266,10 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
                         (IM_IMPLIED, None)
                     };
 
-                    if instruction_mode == 0 && !matches!(argument, Some(Argument::Implicit(_))) {
-                        return Err(SyntaxError::new(
-                            real_line,
-                            format!("No mode identifier specified for '{}'.", name),
-                        ));
-                    }
-
                     let new_instruction = Instruction {
-                        name,
+                        name: name.clone(),
                         argument: argument.clone(),
-                        instruction_mode,
+                        instruction_mode: instruction_mode.clone(),
                     };
 
                     if is_defining_macro {
@@ -264,7 +291,26 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
                             .instructions
                             .push((new_instruction, real_line, Vec::new()));
                     } else {
+                        if instruction_mode == 0 {
+                            return Err(SyntaxError::new(
+								real_line,
+								format!("No mode identifier specified for argument '{}' of instruction '{}'.", args[0], name),
+							));
+                        } else {
+                            let available_modes_val = ins.unwrap().2;
+                            if (available_modes_val & instruction_mode) == 0 {
+                                let available_modes = get_available_im_names(available_modes_val);
+                                let this_mode =
+                                    get_im_name((instruction_mode as f32).log2() as u32).unwrap();
+                                return Err(SyntaxError::new(
+									real_line,
+									format!("Instruction '{}' cannot take an argument in '{}' instruction mode. Available modes are: {}", name, this_mode, available_modes.join(","))
+								));
+                            }
+                        }
+
                         instructions.push(new_instruction);
+                        current_address += 1 + get_argument_size_by_im(instruction_mode);
                     }
                 } else {
                     let macro_def = macros.iter_mut().find(|m| m.name == name);
@@ -307,18 +353,22 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
                             new_instruction.2.push(macro_def.name.clone());
                             new_instruction.0.argument = analyzed.1;
 
-                            if new_instruction.0.instruction_mode == 0 && !is_defining_macro {
-                                let mut trace = new_instruction.2.clone();
-                                trace.reverse();
-                                return Err(SyntaxError::new(
-                                    real_line,
-                                    format!(
-                                        "No mode identifier specified for '{}' on line {}. (macro trace: {})",
-                                        new_instruction.0.name,
-										new_instruction.1,
-                                        trace.join("->")
-                                    ),
-                                ));
+                            if !is_defining_macro {
+                                if new_instruction.0.instruction_mode == 0 && analyzed.0 == 0 {
+                                    let mut trace = new_instruction.2.clone();
+                                    trace.reverse();
+                                    return Err(SyntaxError::new(
+                                        real_line,
+                                        format!(
+											"No mode identifier specified for '{}' on line {}. (macro trace: {})",
+											new_instruction.0.name,
+											new_instruction.1,
+											trace.join("->")
+										),
+                                    ));
+                                }
+
+                                current_address += 1 + get_argument_size_by_im(analyzed.0);
                             }
                             if new_instruction.0.instruction_mode == 0 {
                                 new_instruction.0.instruction_mode = analyzed.0;
@@ -355,7 +405,22 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
                 }
             }
 
-            Token::Label(name) => {}
+            Token::Label(name) => {
+                let exists = labels.iter().find(|&l| l.name == name);
+
+                if exists.is_some() {
+                    return Err(SyntaxError::new(
+                        real_line,
+                        format!("Label with name '{}' already exists.", name),
+                    ));
+                }
+
+                let new_label = Label {
+                    name,
+                    address: current_address,
+                };
+                labels.push(new_label);
+            }
             Token::Marker(name, args) => match name.as_ref() {
                 "macro" => {
                     if is_defining_macro {
@@ -430,5 +495,51 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
         }
     }
 
+    for (idx, line) in instructions_using_labels {
+        let ins = instructions.get_mut(idx).unwrap();
+
+        if let Some(Argument::Label(name)) = &ins.argument {
+            let label = labels.iter().find(|&l| l.name == *name);
+
+            if label.is_none() {
+                return Err(SyntaxError::new(
+                    line,
+                    format!("Label '{}' is not defined.", name),
+                ));
+            }
+
+            ins.argument = Some(Argument::Explicit(label.unwrap().address));
+        }
+    }
     Ok(instructions)
+}
+
+/// Takes a vector of instructions and converts them to a vector of bytes which can be executed by the Tower architecture
+fn assemble(instructions: Vec<Instruction>) -> Vec<u8> {
+    let mut raw_bytes: Vec<u8> = Vec::new();
+
+    for ins in instructions {
+        let instruction = get_instruction_by_name(&ins.name).unwrap();
+        let opcode = instruction.0;
+        // convert to 0-7
+        let im = (ins.instruction_mode as f32).log2() as u32;
+
+        let instruction_byte = ((opcode << 3) | im) as u8;
+        raw_bytes.push(instruction_byte);
+
+        if let Some(arg) = ins.argument {
+            if let Argument::Explicit(arg_val) = arg {
+                let size = get_argument_size_by_im(ins.instruction_mode);
+                if size == 0 {
+                    continue;
+                }
+
+                if size == 2 {
+                    raw_bytes.push(((arg_val >> 8) & 0xFF) as u8);
+                }
+                raw_bytes.push((arg_val & 0xFF) as u8);
+            }
+        }
+    }
+    raw_bytes
 }

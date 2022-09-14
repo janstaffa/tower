@@ -81,6 +81,7 @@ Flags are used to store boolean information between instructions. They are set a
 | Zero | Set when the result of an operation is zero -\> RAX == RBX |
 | Sign | Set if the number could be negative. |
 | Overflow | Set when a signed number overflows. |
+| InCarry | Set when the incrementer overflows. |
 
 
 ## 3. Arithmetic Logic Unit
@@ -123,11 +124,11 @@ If the instruction requires an argument, it will be fetched from the next one or
 A ROM containing the microcode is then used to find the set of micro instructions required to perform this instruction. This is done by combining values from the flags register, the current micro step, the number of arguments and the opcode of the instruction and using this value as a memory address in the ROM. Below is a visual representation of how these values are combined to form an address.
 
 ```
-[AAAAA][BBB][CC][DDDD]
+[AAAAA][BBB][CCC][DDDD]
 
 A - opcode(5b)
 B - instruction mode(3b)
-C - flags(2b)
+C - flags(3b)
 D - micro step(4b)
 ```
 

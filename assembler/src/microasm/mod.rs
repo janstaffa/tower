@@ -17,15 +17,15 @@ pub const CONTROL_SIGNALS: &[&'static str] = &[
 // constants
 pub const STEP_COUNTER_BIT_SIZE: u32 = 4;
 pub const INSTRUCTION_MODE_BIT_SIZE: u32 = 3;
-pub const FLAGS_BIT_SIZE: u32 = 2;
+pub const FLAGS_BIT_SIZE: u32 = 3;
 
 pub const INSTRUCTION_MODE_COUNT: usize = 8;
-pub const FLAG_COMBINATIONS: usize = 4;
+pub const FLAG_COMBINATIONS: usize = 2_usize.pow(FLAGS_BIT_SIZE);
 pub const TOTAL_DEF_COMBINATIONS: usize = INSTRUCTION_MODE_COUNT * FLAG_COMBINATIONS;
 
 pub const MAX_MICRO_STEP_COUNT: usize = 16;
 
-pub const FLAGS: [&'static str; FLAGS_BIT_SIZE as usize] = ["CARRY", "ZERO"];
+pub const FLAGS: [&'static str; FLAGS_BIT_SIZE as usize] = ["CARRY", "ZERO", "INCARRY"];
 
 pub const CONTROL_BYTES: usize = 5; 
 

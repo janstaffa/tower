@@ -1,58 +1,20 @@
 #include "test2.asm"
 
-#macro CLC
-TFA
-NAND #0b1110
-NOTA
-TAF 
+#macro MW
+	LDA $1
+	STA $2
 #end
 
-#macro TEST
-ADD $1
-JMP &0xF0F0
-#end
+MW #0xFF, &0x4000
 
-#macro ADD_16
-TEST #$1
-#end
+lda #0
+_loop:
+	jc _stop
+	add #1
+	sta &0x4001
 
-#macro ADD_17
- ADD_16 $1
- SUB @$2
-#end
+	sta @0x4000
+	jmp _loop
 
-
-; VARIABLE = #200
-
-#macro ADD_INLINE
- ADD_17 $1, $2
- STA &$3
-#end
-
-label1:
- ADD_INLINE 0x10, #10, &0x0001
-
-
- ADD_17 @0xff, %A
-
-; ADD 0x000f
- 
- LDA #10
- ADD #15
- STA &0x0001
- 
-
-
-; LDA *$1
-; ADD *$2
-; STA $1
-
-; LDA *$3
-; ADD *$4
-; STA $2
-
-
-label2:
-
-
-; ADD 0x255
+_stop:
+	hlt

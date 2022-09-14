@@ -4,6 +4,8 @@ use crate::{get_im_name, read_file_binary, AssemblerError, INSTRUCTIONS};
 
 use crate::microasm::{InstructionDef, CONTROL_BYTES, CONTROL_SIGNALS};
 
+use super::{INSTRUCTION_MODE_BIT_SIZE, FLAGS_BIT_SIZE, STEP_COUNTER_BIT_SIZE};
+
 pub fn disassembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError> {
     let input = read_file_binary(file_in)?;
     let disassembled = disassemble(input)?;
@@ -85,10 +87,10 @@ fn disassemble(input_bytes: Vec<u8>) -> Result<Vec<InstructionDef>, AssemblerErr
         let abs_byte = (addr * CONTROL_BYTES as u32) as usize;
 
         // get individual components of the address
-        let opcode = addr >> 9;
+        let opcode = addr >> (INSTRUCTION_MODE_BIT_SIZE + FLAGS_BIT_SIZE + STEP_COUNTER_BIT_SIZE);
 
-        let instruction_mode = (addr >> 6) & 0b111;
-        let flags = (addr >> 4) & 0b11;
+        let instruction_mode = (addr >> (FLAGS_BIT_SIZE + STEP_COUNTER_BIT_SIZE)) & 0b111;
+        let flags = (addr >> (STEP_COUNTER_BIT_SIZE)) & 0b111;
         let _micro_step = addr & 0b1111;
 
         let ins_signature = INSTRUCTIONS.get(opcode as usize);

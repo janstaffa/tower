@@ -46,10 +46,12 @@ pub struct Label {
 
 #[derive(Debug, Clone)]
 pub enum Argument {
-    //		 argument
+    /// literal argument
     Explicit(u32),
-    //		 argument index
+    /// argument index
     Implicit(u32),
+    /// label name
+    Label(String),
 }
 
 pub struct GenericInstruction {
@@ -59,6 +61,10 @@ pub struct GenericInstruction {
 // ==============================================
 
 pub fn analyze_arg(arg: &str) -> Result<InstructionMode, String> {
+    if arg.chars().count() == 0 {
+        return Err(String::from("Invalid argument, argument cannot be empty."));
+    }
+
     let ident = arg.chars().next().unwrap();
     let im = match ident {
         '#' => IM_IMMEDIATE,
@@ -73,13 +79,16 @@ pub fn analyze_arg(arg: &str) -> Result<InstructionMode, String> {
             }
         }
         '&' => IM_CONSTANT,
-        _ => 0
+        _ => 0,
     };
     Ok(im)
 }
 
 /// Takes a raw argument as &str and parses it to an enum.
 pub fn parse_arg(arg: &str) -> Result<Option<Argument>, String> {
+    if arg.chars().count() == 0 {
+        return Err(String::from("Invalid argument, argument cannot be empty."));
+    }
     let in_place_argument_idx = arg.find('$');
     let arg = if let Some(ipa_idx) = in_place_argument_idx {
         let argument_index_str = &arg[(ipa_idx + 1)..];
@@ -97,6 +106,12 @@ pub fn parse_arg(arg: &str) -> Result<Option<Argument>, String> {
             _ => &arg[1..],
         };
 
+        let first_char = arg.chars().next().unwrap();
+
+        if !first_char.is_digit(10) && im == 0 {
+            return Ok(Some(Argument::Label(arg.to_string())));
+        }
+		
         // hex
         let val = if str_val.starts_with("0x") {
             u32::from_str_radix(&str_val[2..], 16)

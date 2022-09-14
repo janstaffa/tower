@@ -1,11 +1,11 @@
-use regex::Regex;
-use std::io::Write;
-use std::mem::MaybeUninit;
-use std::{collections::VecDeque, fs::File};
 use crate::{
     get_instruction_by_name, read_file, AssemblerError, SyntaxError, IM_ABSOLUTE, IM_CONSTANT,
     IM_IMMEDIATE, IM_IMPLIED, IM_INDIRECT, IM_REGA, IM_REGB, IM_ZEROPAGE, INSTRUCTIONS,
 };
+use regex::Regex;
+use std::io::Write;
+use std::mem::MaybeUninit;
+use std::{collections::VecDeque, fs::File};
 
 use crate::microasm::{
     Conditional, InstructionDef, LineType, MacroDef, MicroStep, TokenizedLine, COMMENT_IDENT,
@@ -320,9 +320,12 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
 
                     let is_inverted = flag_name.chars().next().unwrap() == '!';
 
-                    let flag_name = if is_inverted {flag_name[1..].to_string()} else {flag_name};
+                    let flag_name = if is_inverted {
+                        flag_name[1..].to_string()
+                    } else {
+                        flag_name
+                    };
 
-                    
                     // check if a flag with this name exists
                     let flg_idx = FLAGS.iter().position(|&f| f.to_lowercase() == flag_name);
 
@@ -585,7 +588,16 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
         instructions.extend(current_instruction);
     }
 
-    Ok(instructions)
+    // remove all empty definitions
+    let mut final_instructions = Vec::new();
+    for ins in instructions {
+        if ins.steps.len() == 0 {
+            continue;
+        }
+        final_instructions.push(ins);
+    }
+
+    Ok(final_instructions)
 }
 
 /// Takes the defined instructions and converts them to a binary file that is to be used inside the microcode ROM.
@@ -600,13 +612,12 @@ fn assemble(instruction_defs: Vec<InstructionDef>) -> Vec<u8> {
 
     'addr_loop: for addr in 0..combs {
         // get individual components of the address
-        let opcode = addr >> 9;
-        let instruction_mode = (addr >> 6) & 0b111;
-        let flags = (addr >> 4) & 0b11;
+        let opcode = addr >> (STEP_COUNTER_BIT_SIZE + FLAGS_BIT_SIZE + INSTRUCTION_MODE_BIT_SIZE);
+        let instruction_mode = (addr >> (STEP_COUNTER_BIT_SIZE + FLAGS_BIT_SIZE)) & 0b111;
+        let flags = (addr >> STEP_COUNTER_BIT_SIZE) & 0b111;
         let micro_step = addr & 0b1111;
 
         for idf in &instruction_defs {
-            // get the flags value
             let flags_match = flags == idf.flags;
 
             let instruction_modes_match =
