@@ -1,4 +1,4 @@
-use std::{fs::File};
+use std::fs::File;
 
 use regex::Regex;
 
@@ -7,10 +7,7 @@ use crate::{
     IM_ABSOLUTE, IM_CONSTANT, IM_IMMEDIATE, IM_IMPLIED, IM_INDIRECT, IM_REGA, IM_REGB,
 };
 
-use super::{
-    analyze_arg, parse_arg, Argument, Instruction, Label, MacroDef, Token,
-    TokenizedLine,
-};
+use super::{analyze_arg, parse_arg, Argument, Instruction, Label, MacroDef, Token, TokenizedLine};
 
 pub fn assembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError> {
     let input = read_file(file_in)?;
@@ -88,27 +85,27 @@ fn tokenize(code: String) -> Result<Vec<TokenizedLine>, SyntaxError> {
             )
         }
         // the line is a label
-        else if let Some(':') = line.chars().last() {
+        else if let Some(':') = words[0].chars().last() {
             if words.len() > 1 {
                 return Err(SyntaxError::new(
                     real_line,
                     String::from("Invalid label definition, a label can only be one word."),
                 ));
             }
-            let mut label = words[0].to_owned();
+
+            let mut label_name = words[0].clone();
+            // remove the colon
+            label_name.pop();
 
             let re = Regex::new(r"[^a-zA-Z0-9]").unwrap();
-            if re.is_match(&label) {
+            if re.is_match(&label_name) {
                 return Err(SyntaxError::new(
                     real_line,
-                    format!("Invalid label name '{}'. Label name can only contain characters a-z or numbers.", label),
+                    format!("Invalid label name '{}'. Label name can only contain characters a-z or numbers.", label_name),
                 ));
             }
 
-            // remove the colon
-            label.pop();
-
-            TokenizedLine(real_line, Token::Label(label))
+            TokenizedLine(real_line, Token::Label(label_name))
         }
         // the line is an instruction
         else {
@@ -124,7 +121,7 @@ fn tokenize(code: String) -> Result<Vec<TokenizedLine>, SyntaxError> {
                     if a.contains(" ") {
                         return Err(SyntaxError::new(
 								real_line,
-								format!("Invalid argument '{}', arguments can only be one word. If you want to specify two arguments separate them by a comma.", a),
+								format!("Invalid argument '{}', arguments can only be one word. If you want to specify multiple arguments separate them by a comma.", a),
 							));
                     }
                 }
@@ -173,6 +170,53 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
                     }
                 }
 
+                let mut parsed_args = Vec::new();
+                for arg in &args {
+                    let arg = &args[0];
+                    let im = match analyze_arg(arg) {
+                        Ok(im) => im,
+                        Err(e) => return Err(SyntaxError::new(real_line, e)),
+                    };
+                    let arg = match parse_arg(arg) {
+                        Ok(arg) => arg,
+                        Err(e) => return Err(SyntaxError::new(real_line, e)),
+                    };
+                    parsed_args.push((im, arg));
+                }
+
+                if is_defining_macro {
+                    let current_macro = current_macro.as_mut().unwrap();
+
+                    for arg in &parsed_args {
+                        if let Some(Argument::Implicit(arg_idx)) = &arg.1 {
+                            let exists = current_macro
+                                .args
+                                .iter()
+                                .find(|&ma| *ma == *arg_idx)
+                                .is_some();
+
+                            if !exists {
+                                current_macro.args.push(*arg_idx);
+                            }
+                        }
+                    }
+                } else {
+                    let found_placeholder = parsed_args
+                        .iter()
+                        .find(|&a| matches!(a, (_, Some(Argument::Implicit(arg_idx)))));
+
+                    if found_placeholder.is_some() {
+                        if let Argument::Implicit(arg_idx) =
+                            found_placeholder.as_ref().unwrap().1.as_ref().unwrap()
+                        {
+                            return Err(SyntaxError::new(
+                                real_line,
+                                format!("Wrong usage of argument placeholder '${}'. Argument placeholders can only be used inside a macro.", arg_idx),
+                            ));
+                        }
+                    }
+                }
+
                 let ins = get_instruction_by_name(&name);
                 // check if this instruction exists
                 if ins.is_some() {
@@ -182,57 +226,42 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
                             String::from("Instructions can only have one argument."),
                         ));
                     }
+
                     let (instruction_mode, argument) = if args.len() == 1 {
-                        let arg = &args[0];
-                        let im = match analyze_arg(arg) {
-                            Ok(im) => im,
-                            Err(e) => return Err(SyntaxError::new(real_line, e)),
-                        };
-                        let arg = match parse_arg(arg) {
-                            Ok(arg) => arg,
-                            Err(e) => return Err(SyntaxError::new(real_line, e)),
-                        };
-                        (im, arg)
+                        parsed_args[0].clone()
                     } else {
                         (IM_IMPLIED, None)
                     };
 
+                    if instruction_mode == 0 && !is_defining_macro {
+                        return Err(SyntaxError::new(
+                            real_line,
+                            format!("No mode identifier specified for '{}'.", name),
+                        ));
+                    }
+
                     let new_instruction = Instruction {
-                        name: name.to_lowercase(),
-                        argument,
+                        name,
+                        argument: argument.clone(),
                         instruction_mode,
                     };
 
                     if is_defining_macro {
                         let current_macro = current_macro.as_mut().unwrap();
 
-                        if args.len() == 1 {
-                            let arg = &args[0];
-                            let in_place_argument_idx = arg.find('$');
-                            if let Some(ipa_idx) = in_place_argument_idx {
-                                let argument_index_str = &arg[(ipa_idx + 1)..];
-                                if let Ok(argument_index) = argument_index_str.parse() {
-                                    let exists = current_macro
-                                        .args
-                                        .iter()
-                                        .find(|&ma| *ma == argument_index)
-                                        .is_some();
+                        if let Some(Argument::Implicit(arg_idx)) = &argument {
+                            let exists = current_macro
+                                .args
+                                .iter()
+                                .find(|&ma| *ma == *arg_idx)
+                                .is_some();
 
-                                    if !exists {
-                                        current_macro.args.push(argument_index);
-                                    }
-                                } else {
-                                    return Err(SyntaxError::new(
-                                        real_line,
-                                        format!(
-                                            "Invalid macro argument index '{}'.",
-                                            argument_index_str
-                                        ),
-                                    ));
-                                }
+                            if !exists {
+                                current_macro.args.push(*arg_idx);
                             }
                         }
-                        current_macro.instructions.push(new_instruction);
+
+                        current_macro.instructions.push((new_instruction, real_line, vec![current_macro.name.clone()]));
                     } else {
                         instructions.push(new_instruction);
                     }
@@ -242,29 +271,44 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
                     if let Some(macro_def) = macro_def {
                         if args.len() != macro_def.args.len() {
                             return Err(SyntaxError::new(
-									real_line,
-									format!("Wrong number of arguments for macro '{}'. This macro requires {} arguments.", macro_def.name, macro_def.args.len()),
-								));
+							    real_line,
+							    format!("Wrong number of arguments for macro '{}'. This macro requires {} arguments.", macro_def.name, macro_def.args.len()),
+							));
                         }
 
                         let mut new_instructions = Vec::new();
                         for ins in &macro_def.instructions {
-                            let argument = if let Some(arg) = ins.argument.clone() {
-                                let argument = if let Argument::Implicit(idx) = arg {
-                                    match parse_arg(&args[idx as usize - 1]) {
+                            let analyzed = if let Some(arg) = ins.0.argument.clone() {
+                                let analyzed = if let Argument::Implicit(idx) = arg {
+                                    let upstream_arg = &args[idx as usize - 1];
+                                    let im = match analyze_arg(upstream_arg) {
+                                        Ok(im) => im,
+                                        Err(e) => return Err(SyntaxError::new(real_line, e)),
+                                    };
+
+                                    let argument = match parse_arg(upstream_arg) {
                                         Ok(arg) => arg,
                                         Err(e) => return Err(SyntaxError::new(real_line, e)),
-                                    }
+                                    };
+
+                                    (im, argument)
                                 } else {
-                                    Some(arg)
+                                    (ins.0.instruction_mode, Some(arg))
                                 };
-                                argument
+
+                                analyzed
                             } else {
-                                None
+                                (IM_IMPLIED, None)
                             };
 
                             let mut new_instruction = ins.clone();
-                            new_instruction.argument = argument;
+
+                            new_instruction.2.push(macro_def.name.clone());
+                            new_instruction.0.argument = analyzed.1;
+
+                            if new_instruction.0.instruction_mode == 0 {
+                                new_instruction.0.instruction_mode = analyzed.0;
+                            }
 
                             new_instructions.push(new_instruction);
                         }
@@ -274,32 +318,23 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
                             current_macro.instructions.extend(new_instructions);
 
                             for arg in args {
-                                let in_place_argument_idx = arg.find('$');
-                                if let Some(ipa_idx) = in_place_argument_idx {
-                                    let argument_index_str = &arg[(ipa_idx + 1)..];
-                                    if let Ok(argument_index) = argument_index_str.parse() {
-                                        let exists = macro_def
-                                            .args
-                                            .iter()
-                                            .find(|&ma| *ma == argument_index)
-                                            .is_some();
+                                let argument = match parse_arg(&arg) {
+                                    Ok(a) => a,
+                                    Err(e) => return Err(SyntaxError::new(real_line, e)),
+                                };
 
-                                        if !exists {
-                                            macro_def.args.push(argument_index);
-                                        }
-                                    } else {
-                                        return Err(SyntaxError::new(
-                                            real_line,
-                                            format!(
-                                                "Invalid macro argument index '{}'.",
-                                                argument_index_str
-                                            ),
-                                        ));
+                                if let Some(Argument::Implicit(arg_idx)) = &argument {
+                                    let exists =
+                                        macro_def.args.iter().find(|&ma| *ma == *arg_idx).is_some();
+
+                                    if !exists {
+                                        macro_def.args.push(*arg_idx);
                                     }
                                 }
                             }
                         } else {
-                            instructions.extend(new_instructions);
+                            let only_instructions: Vec<Instruction> = new_instructions.iter().map(|i| i.0.clone()).collect();
+                            instructions.extend(only_instructions);
                         }
                     } else {
                         return Err(SyntaxError::new(
@@ -313,6 +348,13 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
             Token::Label(name) => {}
             Token::Marker(name, args) => match name.as_ref() {
                 "macro" => {
+                    if is_defining_macro {
+                        return Err(SyntaxError::new(
+                            real_line,
+                            String::from("Invalid placement of macro marker."),
+                        ));
+                    }
+
                     if args.len() == 0 || args[0].chars().count() == 0 {
                         return Err(SyntaxError::new(
                             real_line,

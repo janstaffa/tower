@@ -35,7 +35,8 @@ pub struct Instruction {
 pub struct MacroDef {
     pub name: String,
     pub args: Vec<u32>,
-    pub instructions: Vec<Instruction>,
+    /// (Instruction, real line, macro trace)
+    pub instructions: Vec<(Instruction, u32, Vec<String>)>,
 }
 
 pub struct Label {
@@ -58,19 +59,21 @@ pub struct GenericInstruction {
 // ==============================================
 
 pub fn analyze_arg(arg: &str) -> Result<InstructionMode, String> {
-    let im = match arg.chars().next().unwrap() {
+    let ident = arg.chars().next().unwrap();
+    let im = match ident {
         '#' => IM_IMMEDIATE,
         '*' => IM_ABSOLUTE,
         '@' => IM_INDIRECT,
         '%' => {
             let reg = arg.chars().nth(1).unwrap();
             match reg {
-                'A' => IM_REGA,
-                'B' => IM_REGB,
+                'a' => IM_REGA,
+                'b' => IM_REGB,
                 _ => return Err(format!("Invalid register '{}'.", reg)),
             }
         }
-        _ => IM_CONSTANT,
+        '&' => IM_CONSTANT,
+        _ => 0
     };
     Ok(im)
 }
@@ -90,17 +93,17 @@ pub fn parse_arg(arg: &str) -> Result<Option<Argument>, String> {
 
         let str_val = match im {
             IM_REGA | IM_REGB => return Ok(None),
-            IM_CONSTANT => arg,
+            0 => arg,
             _ => &arg[1..],
         };
 
         // hex
         let val = if str_val.starts_with("0x") {
-            u32::from_str_radix(str_val, 16)
+            u32::from_str_radix(&str_val[2..], 16)
         }
         // binary
         else if str_val.starts_with("0b") {
-            u32::from_str_radix(str_val, 2)
+            u32::from_str_radix(&str_val[2..], 2)
         }
         // decimal
         else {
