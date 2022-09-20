@@ -15,11 +15,12 @@ pub const CONTROL_SIGNALS: &[&'static str] = &[
 ];
 
 // constants
+pub const OPCODE_BIT_SIZE: u32 = 5;
 pub const STEP_COUNTER_BIT_SIZE: u32 = 4;
 pub const INSTRUCTION_MODE_BIT_SIZE: u32 = 3;
 pub const FLAGS_BIT_SIZE: u32 = 3;
 
-pub const INSTRUCTION_MODE_COUNT: usize = 8;
+pub const INSTRUCTION_MODE_COUNT: usize = 2_usize.pow(INSTRUCTION_MODE_BIT_SIZE);
 pub const FLAG_COMBINATIONS: usize = 2_usize.pow(FLAGS_BIT_SIZE);
 pub const TOTAL_DEF_COMBINATIONS: usize = INSTRUCTION_MODE_COUNT * FLAG_COMBINATIONS;
 

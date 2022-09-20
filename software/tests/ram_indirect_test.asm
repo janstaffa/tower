@@ -1,5 +1,3 @@
-#include "test2.asm"
-
 #macro MW
 	LDA $1
 	STA $2

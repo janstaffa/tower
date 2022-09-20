@@ -40,7 +40,6 @@ fn main() {
 }
 
 fn run() -> Result<(), AssemblerError> {
-    assembler("examples/test.asm", "test.bin").unwrap();
     let args = Args::parse();
 
     let input_file_path = &args.r#in;
@@ -62,6 +61,7 @@ fn run() -> Result<(), AssemblerError> {
                 .unwrap_or(String::from(ASSEMBLER_DEFAULT_OUT_FILE));
 
             println!("Assembling... '{}'", input_file_path);
+            assembler(&input_file_path, &output_file_path)?;
 
             let now = Utc::now();
             let delta_time = now - start_time;

@@ -10,7 +10,8 @@ use std::{collections::VecDeque, fs::File};
 use crate::microasm::{
     Conditional, InstructionDef, LineType, MacroDef, MicroStep, TokenizedLine, COMMENT_IDENT,
     CONTROL_SIGNALS, FLAGS, FLAGS_BIT_SIZE, FLAG_COMBINATIONS, INSTRUCTION_MODE_BIT_SIZE,
-    INSTRUCTION_MODE_COUNT, MAX_MICRO_STEP_COUNT, STEP_COUNTER_BIT_SIZE, TOTAL_DEF_COMBINATIONS,
+    INSTRUCTION_MODE_COUNT, MAX_MICRO_STEP_COUNT, OPCODE_BIT_SIZE, STEP_COUNTER_BIT_SIZE,
+    TOTAL_DEF_COMBINATIONS,
 };
 
 pub fn assembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError> {
@@ -493,6 +494,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                         }
                         true
                     };
+
                     for ins in current_instruction {
                         if matches_conditions(&ins.instruction_mode, ins.flags) {
                             ins.steps.extend(steps.clone());
@@ -602,46 +604,33 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
 
 /// Takes the defined instructions and converts them to a binary file that is to be used inside the microcode ROM.
 fn assemble(instruction_defs: Vec<InstructionDef>) -> Vec<u8> {
-    let mut raw_bytes: Vec<u8> = Vec::new();
-
-    // calculate all possible combinations
-    let combs = (INSTRUCTIONS.len() as u32)
+    let combs = 2_u32.pow(OPCODE_BIT_SIZE)
         * 2_u32.pow(STEP_COUNTER_BIT_SIZE)
         * 2_u32.pow(FLAGS_BIT_SIZE)
         * 2_u32.pow(INSTRUCTION_MODE_BIT_SIZE);
 
-    'addr_loop: for addr in 0..combs {
-        // get individual components of the address
-        let opcode = addr >> (STEP_COUNTER_BIT_SIZE + FLAGS_BIT_SIZE + INSTRUCTION_MODE_BIT_SIZE);
-        let instruction_mode = (addr >> (STEP_COUNTER_BIT_SIZE + FLAGS_BIT_SIZE)) & 0b111;
-        let flags = (addr >> STEP_COUNTER_BIT_SIZE) & 0b111;
-        let micro_step = addr & 0b1111;
+    let mut raw_bytes: Vec<u8> = vec![0; (combs * 5) as usize];
 
-        for idf in &instruction_defs {
-            let flags_match = flags == idf.flags;
+    for idf in instruction_defs {
+        let inst = get_instruction_by_name(&idf.name).unwrap();
 
-            let instruction_modes_match =
-                (idf.instruction_mode as f32).log2() as u32 == instruction_mode;
+        let opcode = inst.0 << (STEP_COUNTER_BIT_SIZE + FLAGS_BIT_SIZE + INSTRUCTION_MODE_BIT_SIZE);
+        let instruction_mode = ((idf.instruction_mode as f32).log2() as u32)
+            << (STEP_COUNTER_BIT_SIZE + FLAGS_BIT_SIZE);
+        let flags = idf.flags << STEP_COUNTER_BIT_SIZE;
+        let instruction_raw_start_idx = (opcode | instruction_mode | flags) * 5;
 
-            let inst = get_instruction_by_name(&idf.name).unwrap();
-            let opcodes_match = inst.0 as u32 == opcode;
+        for si in 0..MAX_MICRO_STEP_COUNT {
+            let step = idf.steps.get(si);
+            let real_byte_idx = instruction_raw_start_idx as usize + si * 5;
 
-            // check if this is the correct definition
-            if flags_match && instruction_modes_match && opcodes_match {
-                // fill remaining steps
-                if micro_step >= idf.steps.len() as u32 {
-                    raw_bytes.extend(&[0x00, 0x00, 0x00, 0x00, 0x00]);
-                    continue 'addr_loop;
-                }
-                let micro_step_csignals = idf.steps.get(micro_step as usize).unwrap();
-
+            if let Some(control_signals) = step {
                 // construct the control word
                 let mut control_word: u64 = 0;
-                for cl in micro_step_csignals {
+                for cl in control_signals {
                     control_word |= 2_u64.pow(*cl as u32);
                 }
-
-                // split the control word into four bytes
+                // split the control word into five bytes
                 let control_bytes = &[
                     (control_word >> 32) as u8,
                     ((control_word >> 24) & 0xff) as u8,
@@ -650,12 +639,76 @@ fn assemble(instruction_defs: Vec<InstructionDef>) -> Vec<u8> {
                     (control_word & 0xff) as u8,
                 ];
 
-                raw_bytes.extend(control_bytes);
-                continue 'addr_loop;
+                raw_bytes.splice(real_byte_idx..real_byte_idx + 5, *control_bytes);
+                continue;
             }
+            break;
         }
-        raw_bytes.extend(&[0x00, 0x00, 0x00, 0x00, 0x00]);
     }
-
     raw_bytes
 }
+
+// Old VERY slow code
+
+// /// Takes the defined instructions and converts them to a binary file that is to be used inside the microcode ROM.
+// fn assemble(instruction_defs: Vec<InstructionDef>) -> Vec<u8> {
+//     let mut raw_bytes: Vec<u8> = Vec::new();
+
+// 	for ins in instruction_defs {
+
+// 	}
+//     // calculate all possible combinations
+//     let combs = (INSTRUCTIONS.len() as u32)
+//         * 2_u32.pow(STEP_COUNTER_BIT_SIZE)
+//         * 2_u32.pow(FLAGS_BIT_SIZE)
+//         * 2_u32.pow(INSTRUCTION_MODE_BIT_SIZE);
+
+//     'addr_loop: for addr in 0..combs {
+//         // get individual components of the address
+//         let opcode = addr >> (STEP_COUNTER_BIT_SIZE + FLAGS_BIT_SIZE + INSTRUCTION_MODE_BIT_SIZE);
+//         let instruction_mode = (addr >> (STEP_COUNTER_BIT_SIZE + FLAGS_BIT_SIZE)) & 0b111;
+//         let flags = (addr >> STEP_COUNTER_BIT_SIZE) & 0b111;
+//         let micro_step = addr & 0b1111;
+
+//         for idf in &instruction_defs {
+//             let flags_match = flags == idf.flags;
+
+//             let instruction_modes_match =
+//                 (idf.instruction_mode as f32).log2() as u32 == instruction_mode;
+
+//             let inst = get_instruction_by_name(&idf.name).unwrap();
+//             let opcodes_match = inst.0 as u32 == opcode;
+
+//             // check if this is the correct definition
+//             if flags_match && instruction_modes_match && opcodes_match {
+//                 // fill remaining steps
+//                 if micro_step >= idf.steps.len() as u32 {
+//                     raw_bytes.extend(&[0x00, 0x00, 0x00, 0x00, 0x00]);
+//                     continue 'addr_loop;
+//                 }
+//                 let micro_step_csignals = idf.steps.get(micro_step as usize).unwrap();
+
+//                 // construct the control word
+//                 let mut control_word: u64 = 0;
+//                 for cl in micro_step_csignals {
+//                     control_word |= 2_u64.pow(*cl as u32);
+//                 }
+
+//                 // split the control word into four bytes
+//                 let control_bytes = &[
+//                     (control_word >> 32) as u8,
+//                     ((control_word >> 24) & 0xff) as u8,
+//                     ((control_word >> 16) & 0xff) as u8,
+//                     ((control_word >> 8) & 0xff) as u8,
+//                     (control_word & 0xff) as u8,
+//                 ];
+
+//                 raw_bytes.extend(control_bytes);
+//                 continue 'addr_loop;
+//             }
+//         }
+//         raw_bytes.extend(&[0x00, 0x00, 0x00, 0x00, 0x00]);
+//     }
+
+//     raw_bytes
+// }

@@ -33,7 +33,7 @@ pub fn assembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError> {
             ))
         }
     };
-    println!("parsed {:?}", parsed);
+    // println!("parsed {:?}", parsed);
 
     // assemble
     let output = assemble(parsed);

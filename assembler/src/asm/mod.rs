@@ -1,8 +1,5 @@
-use regex::Regex;
-
 use crate::{
-    InstructionMode, IM_ABSOLUTE, IM_CONSTANT, IM_IMMEDIATE, IM_IMPLIED, IM_INDIRECT, IM_REGA,
-    IM_REGB,
+    InstructionMode, IM_ABSOLUTE, IM_CONSTANT, IM_IMMEDIATE, IM_INDIRECT, IM_REGA, IM_REGB,
 };
 
 pub mod asm;
@@ -111,7 +108,7 @@ pub fn parse_arg(arg: &str) -> Result<Option<Argument>, String> {
         if !first_char.is_digit(10) && im == 0 {
             return Ok(Some(Argument::Label(arg.to_string())));
         }
-		
+
         // hex
         let val = if str_val.starts_with("0x") {
             u32::from_str_radix(&str_val[2..], 16)
