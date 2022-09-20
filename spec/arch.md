@@ -196,6 +196,7 @@ NAME \<destination\>  \<source\>
 **Stack Pointer**
 - SPI ... set Stack Pointer to the value on the data BUS
 - SPO ... output Stack Pointer to the data BUS
+- SPOA ... output Stack Pointer to the 8lsb of the address BUS
 
 
 **Registers**
@@ -235,10 +236,6 @@ NAME \<destination\>  \<source\>
 - MI ... store value on the data BUS to memory
 - MO ... output value in memory to the data BUS
 - INI ... store value on the data BUS to the instruction register
-
-**Interfaces**
-- DVE ... enable the device logic to access the data BUS
-- DVW ... if high the data from the device will be put on the data BUS, if low data from the data BUS will be sent to the device
 
 **Address injection**
 - _RAMSTART ... sets the address BUS to the first address in RAM

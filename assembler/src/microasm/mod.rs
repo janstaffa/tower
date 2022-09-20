@@ -9,9 +9,9 @@ pub mod disasm;
 pub const COMMENT_IDENT: char = ';';
 
 pub const CONTROL_SIGNALS: &[&'static str] = &[
-    "IEND", "HLT", "PCI", "PCO", "PCJ", "SPI", "SPO", "AI", "BI", "BO", "HI", "HO", "LI",
+    "IEND", "HLT", "PCI", "PCO", "PCJ", "SPI", "SPO", "SPOA", "AI", "BI", "BO", "HI", "HO", "LI",
     "LO", "HLO", "HLI", "ARHI", "ARHO", "ARLI", "ARLO", "ARHLO", "ALUO", "OPADD", "OPSUB", "OPNOT",
-    "OPNAND", "OPSR", "INCE", "DEC", "INCI", "INCO", "FI", "FO", "MI", "MO", "INI", "DVE", "DVW", "RAMSTART", "SPSTART"
+    "OPNAND", "OPSR", "INCE", "DEC", "INCI", "INCO", "FI", "FO", "MI", "MO", "INI", "_RAMSTART", "_SPSTART"
 ];
 
 // constants

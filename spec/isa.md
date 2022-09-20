@@ -4,7 +4,7 @@
 | :----: | :------: | :---------------: | :---------------------------: | :----------------------------------------------------------------------: |
 |  0x01  |   NOP    |        Imp        |               -               |                              Does nothing.                               |
 |  0x02  |   LDA    | Imm,Abs,ZPage,Ind |            A = Arg            |                       Load a value in register A.                        |
-|  0x03  |   STA    |       Const       |            Arg = A            |                  Stores value in register A to memory.                   |
+|  0x03  |   STA    |  Const,Ind,ZPage  |            Arg = A            |                  Stores value in register A to memory.                   |
 |  0x04  |   ADC    | Imm,Abs,ZPage,Ind |        A = A + B + FC         |    Load a value into B, than add it with A and Carry and store in A.     |
 |  0x05  |   ADD    | Imm,Abs,ZPage,Ind |           A = A + B           |         Load a value into B, than add it with A and store in A.          |
 |  0x06  |   SBB    | Imm,Abs,ZPage,Ind |        A = A - B - FB         | Load a value into B, than subtract it and Borrow from A and store in A.  |
