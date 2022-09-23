@@ -173,7 +173,6 @@ pub fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<Instruction>, SyntaxError
     let mut macros: Vec<MacroDef> = Vec::new();
     let mut is_defining_macro = false;
     let mut current_macro: Option<MacroDef> = None;
-    let mut current_macro_args: Vec<u32> = Vec::new();
 
     let mut labels: Vec<Label> = Vec::new();
     let mut instructions_using_labels: Vec<(usize, u32)> = Vec::new();

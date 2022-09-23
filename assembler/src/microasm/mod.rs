@@ -1,7 +1,6 @@
 pub mod asm;
 pub mod disasm;
 
-
 // ==============================================
 // =             SHARED DEFINITIONS             =
 // ==============================================
@@ -9,9 +8,45 @@ pub mod disasm;
 pub const COMMENT_IDENT: char = ';';
 
 pub const CONTROL_SIGNALS: &[&'static str] = &[
-    "IEND", "HLT", "PCI", "PCO", "PCJ", "SPI", "SPO", "SPOA", "AI", "BI", "BO", "HI", "HO", "LI",
-    "LO", "HLO", "HLI", "ARHI", "ARHO", "ARLI", "ARLO", "ARHLO", "ALUO", "OPADD", "OPSUB", "OPNOT",
-    "OPNAND", "OPSR", "INCE", "DEC", "INCI", "INCO", "FI", "FO", "MI", "MO", "INI", "_RAMSTART", "_SPSTART"
+    "IEND",
+    "HLT",
+    "PCI",
+    "PCO",
+    "PCJ",
+    "SPI",
+    "SPO",
+    "SPOA",
+    "AI",
+    "BI",
+    "BO",
+    "HI",
+    "HO",
+    "LI",
+    "LO",
+    "HLO",
+    "HLI",
+    "ARHI",
+    "ARHO",
+    "ARLI",
+    "ARLO",
+    "ARHLO",
+    "ALUO",
+    "OPADD",
+    "OPSUB",
+    "OPNOT",
+    "OPNAND",
+    "OPSR",
+    "INCE",
+    "DEC",
+    "INCI",
+    "INCO",
+    "FI",
+    "FO",
+    "MI",
+    "MO",
+    "INI",
+    "_RAMSTART",
+    "_SPSTART",
 ];
 
 // constants
@@ -28,14 +63,19 @@ pub const MAX_MICRO_STEP_COUNT: usize = 16;
 
 pub const FLAGS: [&'static str; FLAGS_BIT_SIZE as usize] = ["CARRY", "ZERO", "INCARRY"];
 
-pub const CONTROL_BYTES: usize = 5; 
+pub const CONTROL_BYTES: usize = 5;
 
 // the values are exponents
 pub type MicroStep = Vec<u64>;
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct MacroStep {
+    pub step: MicroStep,
+    pub flags: u32,
+}
 pub struct MacroDef {
     name: String,
-    steps: Vec<MicroStep>,
+    steps: Vec<MacroStep>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

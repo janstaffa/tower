@@ -38,10 +38,15 @@
 
 	ARHLO MO LI
 
+#macro TEST1
+	HLT
+#macro TEST2
+	_RAMSTART
+
 
 ; ========== NOP ==========
 #def NOP
-IEND
+TEST2
 
 
 ; ========== LDA ==========

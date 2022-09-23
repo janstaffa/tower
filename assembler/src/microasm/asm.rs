@@ -14,6 +14,8 @@ use crate::microasm::{
     TOTAL_DEF_COMBINATIONS,
 };
 
+use super::MacroStep;
+
 pub fn assembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError> {
     let input = read_file(file_in)?;
     // tokenize
@@ -159,6 +161,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
             // add a suffix if it is defined
             let extra_steps = current_suf.clone().unwrap_or(Vec::new());
 
+            conditional_stack = VecDeque::new();
             // complete the current definition and save it to its corresponding vector
             if is_defining_instruction {
                 let mut current_instruction = current_instruction.clone().unwrap();
@@ -415,7 +418,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                             }
 
                             if macro_def.steps.len() == 1 {
-                                control_signals.extend(macro_def.steps.first().unwrap());
+                                control_signals.extend(macro_def.steps.first().unwrap().step.clone());
                             } else {
                                 macro_steps.extend(macro_def.steps.to_vec());
                             }
@@ -434,7 +437,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                 } else {
                     Vec::new()
                 };
-                steps.extend(macro_steps.clone());
+                steps.extend(macro_steps.iter().map(|cs| cs.step).clone());
 
                 if is_defining_pref {
                     let current_pref = current_pref.as_mut().unwrap();
@@ -512,7 +515,10 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                 }
                 if is_defining_macro {
                     let macro_def = current_macro.as_mut().unwrap();
-                    macro_def.steps.extend(steps.clone());
+                    let condition = conditional_stack.iter().last();
+                    let macro_steps = steps.iter().map(|s| MacroStep { flags: 0, step: s.clone() });
+                    macro_def.steps.extend(macro_steps);
+
                     if macro_def.steps.len() > MAX_MICRO_STEP_COUNT {
                         return Err(SyntaxError::new(
                             *real_line,
