@@ -7,6 +7,7 @@
 #suf
 	IEND
 
+
 #macro FETCH_LOW
 	PCO MO ARLI
 	PCI
@@ -38,15 +39,10 @@
 
 	ARHLO MO LI
 
-#macro TEST1
-	HLT
-#macro TEST2
-	_RAMSTART
-
 
 ; ========== NOP ==========
 #def NOP
-TEST2
+; do nothing
 
 
 ; ========== LDA ==========
@@ -78,24 +74,9 @@ zpage:
 
 	_RAMSTART ARHLO ALUO MI
 ind:
-	FETCH_ARGS
-
-	ARHLO MO HI
-
-	ARLO INCI
-	INCE INCO ARLI
-
-	#if incarry
-		ARHO INCI
-		INCE INCO ARHI
-	#end
-
-	ARHLO MO LI
-;	FETCH_INDIRECTLY
+	FETCH_INDIRECTLY
 
 	HLO ALUO MI
-
-
 
 
 ; ========== ADD ==========

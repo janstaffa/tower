@@ -68,14 +68,14 @@ pub const CONTROL_BYTES: usize = 5;
 // the values are exponents
 pub type MicroStep = Vec<u64>;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct MacroStep {
+#[derive(Debug, Clone)]
+pub struct ConditionalStep {
     pub step: MicroStep,
-    pub flags: u32,
+    pub conditions: Vec<Conditional>,
 }
 pub struct MacroDef {
     name: String,
-    steps: Vec<MacroStep>,
+    steps: Vec<ConditionalStep>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

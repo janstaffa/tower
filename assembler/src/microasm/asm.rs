@@ -1,6 +1,6 @@
 use crate::{
     get_instruction_by_name, read_file, AssemblerError, SyntaxError, IM_ABSOLUTE, IM_CONSTANT,
-    IM_IMMEDIATE, IM_IMPLIED, IM_INDIRECT, IM_REGA, IM_REGB, IM_ZEROPAGE, INSTRUCTIONS,
+    IM_IMMEDIATE, IM_IMPLIED, IM_INDIRECT, IM_REGA, IM_REGB, IM_ZEROPAGE,
 };
 use regex::Regex;
 use std::io::Write;
@@ -14,7 +14,7 @@ use crate::microasm::{
     TOTAL_DEF_COMBINATIONS,
 };
 
-use super::MacroStep;
+use super::ConditionalStep;
 
 pub fn assembler(file_in: &str, file_out: &str) -> Result<(), AssemblerError> {
     let input = read_file(file_in)?;
@@ -141,9 +141,9 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
 
     // currently defined prefix/suffix
     let mut is_defining_pref = false;
-    let mut current_pref: Option<Vec<MicroStep>> = None;
+    let mut current_pref: Option<Vec<ConditionalStep>> = None;
     let mut is_defining_suf = false;
-    let mut current_suf: Option<Vec<MicroStep>> = None;
+    let mut current_suf: Option<Vec<ConditionalStep>> = None;
 
     // keeps track of nested conditionals
     let mut conditional_stack: VecDeque<Conditional> = VecDeque::new();
@@ -157,11 +157,12 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                 is_new_def = true;
             }
         }
+
+        // this is a new definition
         if is_new_def {
             // add a suffix if it is defined
             let extra_steps = current_suf.clone().unwrap_or(Vec::new());
 
-            conditional_stack = VecDeque::new();
             // complete the current definition and save it to its corresponding vector
             if is_defining_instruction {
                 let mut current_instruction = current_instruction.clone().unwrap();
@@ -175,7 +176,27 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                     if (available_ims & ins.instruction_mode) == 0 {
                         continue;
                     }
-                    ins.steps.extend(extra_steps.clone());
+
+                    // remove all steps which dont match the current flags
+                    let steps: Vec<Vec<u64>> = extra_steps
+                        .iter()
+                        .filter(|&xs| {
+                            if xs.conditions.len() > 0 {
+                                for c in &xs.conditions {
+                                    let is_flag_set = (ins.flags & c.flag) != 0;
+
+                                    if is_flag_set == c.is_inverted {
+                                        return false;
+                                    }
+                                }
+                            }
+                            return true;
+                        })
+                        .map(|xs| xs.step.clone())
+                        .collect();
+
+                    ins.steps.extend(steps);
+
                     if ins.steps.len() > MAX_MICRO_STEP_COUNT {
                         return Err(SyntaxError::new(
                             *real_line,
@@ -198,6 +219,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
             }
             is_defining_pref = false;
             is_defining_suf = false;
+            conditional_stack = VecDeque::new();
         }
         match line {
             LineType::KeyLine(keyword, args) => match &keyword[..] {
@@ -234,7 +256,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                     is_defining_instruction = true;
 
                     // add a prefix if it is defined
-                    let steps = current_pref.clone().unwrap_or(Vec::new());
+                    let prefix_steps = current_pref.clone().unwrap_or(Vec::new());
 
                     let modes: [u32; INSTRUCTION_MODE_COUNT] = [
                         IM_IMPLIED,
@@ -247,7 +269,6 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                         IM_REGB,
                     ];
 
-                    let available_ims = get_instruction_by_name(&inst_name).unwrap().2;
                     // initialize a version of the instruction for every Instruction Mode and flag combination
                     let instruction_versions = {
                         let mut array: [MaybeUninit<InstructionDef>; TOTAL_DEF_COMBINATIONS] =
@@ -255,20 +276,33 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
 
                         for im_idx in 0..INSTRUCTION_MODE_COUNT {
                             let m = modes[im_idx].clone();
-                            let steps = if (available_ims & m) != 0 {
-                                steps.clone()
-                            } else {
-                                Vec::new()
-                            };
 
                             for flg_idx in 0..FLAG_COMBINATIONS {
                                 let flg_val = flg_idx as u32;
+
+                                // remove all steps from the prefix which dont match the current flags
+                                let steps = prefix_steps
+                                    .iter()
+                                    .filter(|&xs| {
+                                        if xs.conditions.len() > 0 {
+                                            for c in &xs.conditions {
+                                                let is_flag_set = (flg_val & c.flag) != 0;
+
+                                                if is_flag_set == c.is_inverted {
+                                                    return false;
+                                                }
+                                            }
+                                        }
+                                        return true;
+                                    })
+                                    .map(|xs| xs.step.clone())
+                                    .collect();
 
                                 let ins_v = InstructionDef {
                                     name: inst_name.clone(),
                                     instruction_mode: m,
                                     flags: flg_val,
-                                    steps: steps.clone(),
+                                    steps,
                                 };
 
                                 let abs_idx = (im_idx * FLAG_COMBINATIONS) + flg_idx;
@@ -394,6 +428,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                 // store the additional steps added by a macro
                 let mut macro_steps = Vec::new();
 
+                // get the control signals from words
                 for word in words {
                     let signal_idx = CONTROL_SIGNALS
                         .iter()
@@ -418,7 +453,8 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                             }
 
                             if macro_def.steps.len() == 1 {
-                                control_signals.extend(macro_def.steps.first().unwrap().step.clone());
+                                control_signals
+                                    .extend(macro_def.steps.first().unwrap().step.clone());
                             } else {
                                 macro_steps.extend(macro_def.steps.to_vec());
                             }
@@ -430,14 +466,20 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                         }
                     }
                 }
-
+                for m in &mut macro_steps {
+                    m.conditions.extend(conditional_stack.clone());
+                }
                 // add all the steps together
                 let mut steps = if control_signals.len() > 0 {
-                    [control_signals].to_vec()
+                    let conditional = ConditionalStep {
+                        conditions: conditional_stack.clone().into(),
+                        step: control_signals,
+                    };
+                    [conditional].to_vec()
                 } else {
                     Vec::new()
                 };
-                steps.extend(macro_steps.iter().map(|cs| cs.step).clone());
+                steps.extend(macro_steps);
 
                 if is_defining_pref {
                     let current_pref = current_pref.as_mut().unwrap();
@@ -451,6 +493,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                             ),
                         ));
                     }
+                    continue;
                 }
                 if is_defining_suf {
                     let current_suf = current_suf.as_mut().unwrap();
@@ -464,6 +507,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                             ),
                         ));
                     }
+                    continue;
                 }
 
                 if is_defining_instruction {
@@ -474,7 +518,6 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                             .unwrap()
                             .2;
 
-                    // filter out, what definitions should be affected
                     let matches_conditions = |inm: &u32, fgs: u32| -> bool {
                         if (available_ims & inm) == 0 {
                             return false;
@@ -498,26 +541,43 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                         true
                     };
 
+                    // apply changes
                     for ins in current_instruction {
-                        if matches_conditions(&ins.instruction_mode, ins.flags) {
-                            ins.steps.extend(steps.clone());
-                            if ins.steps.len() > MAX_MICRO_STEP_COUNT {
-                                return Err(SyntaxError::new(
-                                    *real_line,
-                                    format!(
-                                        "Invalid instruction definition, maximum step count is {}.",
-                                        MAX_MICRO_STEP_COUNT
-                                    ),
-                                ));
+                        // skip the non matching intruction definitions
+                        if !matches_conditions(&ins.instruction_mode, ins.flags) {
+                            continue;
+                        }
+
+                        // add all of the appropriate steps
+                        'step_loop: for s in &steps {
+                            if s.conditions.len() > 0 {
+                                for c in &s.conditions {
+                                    let is_flag_set = (ins.flags & c.flag) != 0;
+
+                                    if is_flag_set == c.is_inverted {
+                                        continue 'step_loop;
+                                    }
+                                }
                             }
+                            ins.steps.push(s.step.clone());
+                        }
+
+                        if ins.steps.len() > MAX_MICRO_STEP_COUNT {
+                            return Err(SyntaxError::new(
+                                *real_line,
+                                format!(
+                                    "Invalid instruction definition, maximum step count is {}.",
+                                    MAX_MICRO_STEP_COUNT
+                                ),
+                            ));
                         }
                     }
+                    continue;
                 }
                 if is_defining_macro {
                     let macro_def = current_macro.as_mut().unwrap();
-                    let condition = conditional_stack.iter().last();
-                    let macro_steps = steps.iter().map(|s| MacroStep { flags: 0, step: s.clone() });
-                    macro_def.steps.extend(macro_steps);
+
+                    macro_def.steps.extend(steps);
 
                     if macro_def.steps.len() > MAX_MICRO_STEP_COUNT {
                         return Err(SyntaxError::new(
@@ -574,15 +634,26 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
     // finish the last definition
     if is_defining_instruction {
         let mut current_instruction = current_instruction.unwrap();
-        let available_ims = get_instruction_by_name(&current_instruction.first().unwrap().name)
-            .unwrap()
-            .2;
         for ins in &mut current_instruction {
-            // skip if this mode is not available
-            if (available_ims & ins.instruction_mode) == 0 {
-                continue;
-            }
-            ins.steps.extend(extra_steps.clone());
+            // remove all steps which dont match the current flags
+            let steps: Vec<MicroStep> = extra_steps
+                .iter()
+                .filter(|&xs| {
+                    if xs.conditions.len() > 0 {
+                        for c in &xs.conditions {
+                            let is_flag_set = (ins.flags & c.flag) != 0;
+
+                            if is_flag_set == c.is_inverted {
+                                return false;
+                            }
+                        }
+                    }
+                    return true;
+                })
+                .map(|xs| xs.step.clone())
+                .collect();
+
+            ins.steps.extend(steps);
             if ins.steps.len() > MAX_MICRO_STEP_COUNT {
                 return Err(SyntaxError::new(
                     tokens.last().unwrap().0,
@@ -596,10 +667,11 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
         instructions.extend(current_instruction);
     }
 
-    // remove all empty definitions
+    // remove all empty or undefined instruction definitions
     let mut final_instructions = Vec::new();
     for ins in instructions {
-        if ins.steps.len() == 0 {
+        let available_ims = get_instruction_by_name(&ins.name).unwrap().2;
+        if ins.steps.len() == 0 || (available_ims & ins.instruction_mode) == 0 {
             continue;
         }
         final_instructions.push(ins);
@@ -617,7 +689,7 @@ fn assemble(instruction_defs: Vec<InstructionDef>) -> Vec<u8> {
 
     let mut raw_bytes: Vec<u8> = vec![0; (combs * 5) as usize];
 
-    for idf in instruction_defs {
+    for idf in &instruction_defs {
         let inst = get_instruction_by_name(&idf.name).unwrap();
 
         let opcode = inst.0 << (STEP_COUNTER_BIT_SIZE + FLAGS_BIT_SIZE + INSTRUCTION_MODE_BIT_SIZE);
@@ -654,7 +726,7 @@ fn assemble(instruction_defs: Vec<InstructionDef>) -> Vec<u8> {
     raw_bytes
 }
 
-// Old VERY slow code
+// Archived VERY slow code
 
 // /// Takes the defined instructions and converts them to a binary file that is to be used inside the microcode ROM.
 // fn assemble(instruction_defs: Vec<InstructionDef>) -> Vec<u8> {

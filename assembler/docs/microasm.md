@@ -107,12 +107,15 @@ ind:
 ### 5. Conditional definitions
 A single instruction can have different definitions defined for different flag combinations. Available flags are:
 
-| Flag  | identifier |
-|-------|------------|
-| Carry | carry      |
-| Zero  | zero       |
+| Flag     | identifier |
+|----------|------------|
+| Carry    | carry      |
+| Zero     | zero       |
+| InCarry  | incarry       |
 
 To initialize a conditional definition, you have to use the `#if` keyword followed by the flag identifier. After the conditional block of code, you can either write the `#end` keyword to exit the block or the `#else` keyword to enter an else block. Note: the `#end` keyword is also used after else blocks.  
+
+Note: conditionals can also be used inside macro, prefix and suffix definitions and work as expected.
 
 **Example:**
 ```asm
