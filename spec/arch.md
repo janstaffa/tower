@@ -223,6 +223,7 @@ NAME \<destination\>  \<source\>
 - OPNOT ... set ALU to NOT
 - OPNAND ... set ALU to NAND
 - OPSR ... set ALU to SHIFT RIGHT
+- ALUFI ... enables the Carry flag to be used by the ALu
 - INCE ... enables the Incrementer
 - DEC ... sets the Incrementer to decrement
 - INCI ... set the Incrementer to the value on the data BUS

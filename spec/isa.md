@@ -12,10 +12,10 @@
 |  0x08  |   INC    |   Const,RegA/B    |             Arg++             |                          Increments the value.                           |
 |  0x09  |   DEC    |   Const,RegA/B    |             Arg--             |                          Decrements the value.                           |
 |  0x0a  |   CMP    | Imm,Abs,ZPage,Ind | A == Arg -> FZ, A < Arg -> FO |      Load a value into B, than subtract it from A and store Flags.       |
-|  0x0b  |   JMP    |       Const       |           PC = Arg            |                     Sets the Program Counter to Arg.                     |
-|  0x0c  |    JC    |       Const       |      FC == 1 -> PC = Arg      |        Sets the Program Counter to Arg if the Carry flag is set.         |
-|  0x0d  |    JZ    |       Const       |      Z == 1 -> PC = Arg       |         Set the Program Counter to Arg if the Zero flag is set.          |
-|  0x0e  |   JNZ    |       Const       |      Z == 0 -> PC = Arg       |       Set the Program Counter to Arg if the Zero flag is not set.        |
+|  0x0b  |   JMP    |     Const,Ind     |           PC = Arg            |                     Sets the Program Counter to Arg.                     |
+|  0x0c  |    JC    |     Const,Ind     |      FC == 1 -> PC = Arg      |        Sets the Program Counter to Arg if the Carry flag is set.         |
+|  0x0d  |    JZ    |     Const,Ind     |      Z == 1 -> PC = Arg       |         Set the Program Counter to Arg if the Zero flag is set.          |
+|  0x0e  |   JNZ    |     Const,Ind     |      Z == 0 -> PC = Arg       |       Set the Program Counter to Arg if the Zero flag is not set.        |
 |  0x0f  |   NOTA   |        Imp        |            A = !A             |                     Inverts the value in register A.                     |
 |  0x10  |   NAND   | Imm,Abs,ZPage,Ind |        A = A NAND Arg         |         Load a value into B, than NAND it with A and store in A.         |
 |  0x11  |   SRA    |        Imp        |          A = A >> 1           |           Performs the Shift-Right operation on the value in A           |

@@ -36,6 +36,7 @@ pub const CONTROL_SIGNALS: &[&'static str] = &[
     "OPNOT",
     "OPNAND",
     "OPSR",
+	"ALUFI",
     "INCE",
     "DEC",
     "INCI",

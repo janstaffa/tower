@@ -79,6 +79,33 @@ ind:
 	HLO ALUO MI
 
 
+; ========== ADC ==========
+#def ADC
+imm:
+	; get value from memory and store in B
+	PCO MO BI
+	PCI
+
+	OPADD ALUFI ALUO AI
+abs:
+	FETCH_ARGS
+
+	ARHLO MO BI
+
+	OPADD ALUFI ALUO AI
+zpage:
+	FETCH_LOW
+
+	_RAMSTART ARHLO MO BI
+
+	OPADD ALUFI ALUO AI
+ind:
+	FETCH_INDIRECTLY
+
+	HLO MO BI
+	OPADD ALUFI ALUO AI
+
+
 ; ========== ADD ==========
 #def ADD
 imm:
@@ -86,25 +113,51 @@ imm:
 	PCO MO BI
 	PCI
 
-	OPADD FI ALUO AI
+	OPADD ALUO AI
 abs:
 	FETCH_ARGS
 
 	ARHLO MO BI
 
-	OPADD FI ALUO AI
+	OPADD ALUO AI
 zpage:
 	FETCH_LOW
 
 	_RAMSTART ARHLO MO BI
 
-	OPADD FI ALUO AI
+	OPADD ALUO AI
 ind:
 	FETCH_INDIRECTLY
 
 	HLO MO BI
-	OPADD FI ALUO AI
+	OPADD ALUO AI
 
+
+; ========== SBB ==========
+#def SBB
+imm:
+	; get value from memory and store in B
+	PCO MO BI
+	PCI
+
+	OPSUB ALUFI ALUO AI
+abs:
+	FETCH_ARGS
+
+	ARHLO MO BI
+
+	OPSUB ALUFI ALUO AI
+zpage:
+	FETCH_LOW
+
+	_RAMSTART ARHLO MO BI
+
+	OPSUB ALUFI ALUO AI
+ind:
+	FETCH_INDIRECTLY
+
+	HLO MO BI
+	OPSUB ALUFI ALUO AI
 
 ; ========== SUB ==========
 #def SUB
@@ -297,7 +350,9 @@ imp:
 	OPADD ALUO AI
 
 
+; remove the suffix to save a step
 #suf
+; nothing 
 
 ; ========== JSR ==========
 #def JSR
