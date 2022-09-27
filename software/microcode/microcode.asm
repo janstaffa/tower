@@ -220,24 +220,24 @@ imm:
 	PCO MO BI
 	PCI
 
-	OPSUB ALUO
+	OPSUB
 abs:
 	FETCH_ARGS
 
 	ARHLO MO BI
 
-	OPSUB ALUO
+	OPSUB
 zpage:
 	FETCH_LOW
 
 	_RAMSTART ARHLO MO BI
 
-	OPSUB ALUO
+	OPSUB
 ind:
 	FETCH_INDIRECTLY
 
 	HLO MO BI
-	OPSUB ALUO
+	OPSUB
 
 ; ========== JMP ==========
 #def JMP
@@ -351,32 +351,38 @@ imp:
 
 
 ; remove the suffix to save a step
-#suf
+;#suf
 ; nothing 
 
 ; ========== JSR ==========
 #def JSR
 const:	
+	FETCH_ARGS
+	
+	; save current PC value
 	PCO HLI
 
+	; jump to subroutine
 	ARHLO PCJ
-	FETCH_ARGS
 
-	HO ARHI
-	LO ARLI
 
+	; HO ARHI
+	; LO ARLI
+
+	; store high byte on stack
 	_RAMSTART _SPSTART SPOA HO MI
 	
 	SPO INCI
 	INCE INCO SPI
 
+	; store low byte on stack
 	_RAMSTART _SPSTART SPOA LO MI
 	
 	SPO INCI
 	INCE INCO SPI
 
-#suf
-	IEND
+;#suf
+;	IEND
 
 ; ========== RTS ==========
 #def RTS

@@ -10,11 +10,12 @@
 #end
 
 ; ========== TESTS ==========
-
+	
+	
 
 	MW #0xFF, &0xFF32
 
-	; test 1
+	; test 1 - ADDING, INC, DEC
 	LDA #50
 	STA &0xFF01
 	LDA *0xFF01
@@ -30,7 +31,7 @@
 	JNZ _failed
 	
 
-	; test 2
+	; test 2 - NAND and SR
 	LDA #0
 	NOTA
 	SRA
@@ -40,11 +41,62 @@
 	JNZ _failed
 
 
-
-
-	_loop:
-		JMP _loop
+	; test 3 - flags
+	LDA #0
+	TAF
+	LDA #03
+	JC _failed
+	LDA #255
+	ADD #10
+	JC _continue1
+	LDA #04
+	JMP _failed
+	_continue1:
+	ADC #10
+	SUB #20
+	JZ _continue2
+	LDA #05
+	JMP _failed
 	
+	_continue2:
+
+	; test 4 - stack
+	; test pushing/poping
+	LDA #20
+	PSA
+	LDA #200
+	POA
+	CMP #20
+	JNZ _failed
+
+	LDA #0b1111
+	TAF
+	LDA #0
+	PSF
+	LDA #0b0011
+	TAF
+	POF
+	TFA
+	CMP #0b1111
+	JNZ _failed
+
+
+	; test recursion
+	LDA #10
+	JSR recursive_function
+	JMP _continue3
+
+	recursive_function:
+		ADD #5
+		JC _break
+		JSR recursive_function
+		_break:
+			RTS
+
+	_continue3:
+	
+	LDA #123
+	HLT
 _failed:
 	STA &0xFFFF
 	hlt
