@@ -1,0 +1,4 @@
+LDA #20
+ADD #20
+STA &0xFFFF
+HLT

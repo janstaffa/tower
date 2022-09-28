@@ -97,6 +97,7 @@
 	
 	LDA #123
 	HLT
+	
 _failed:
 	STA &0xFFFF
 	hlt
