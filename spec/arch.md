@@ -154,8 +154,8 @@ The memory is split between multiple chips which are mapped to explicit memory a
 | 0x00-0xFF         | ROM - program memory | 16KB     |
 | 0x100-0x1FF       | Zero page            | 256B     |
 | 0x200-0x2FF       | Stack                | 256B     |
-| 0x300-0xFFFE      | General purpose RAM  | ~48KB    |
-| 0xFFFE-0xFFFF     | I/O mapped memory    | 256B     |
+| 0x300-0xFEFF      | General purpose RAM  | ~48KB    |
+| 0xFF00-0xFFFF     | I/O mapped memory    | 256B     |
 
 ### Zero page
 

@@ -73,7 +73,7 @@
     <a name="appearance" val="logisim_evolution"/>
     <a name="circuit" val="Tower"/>
     <a name="circuitnamedboxfixedsize" val="true"/>
-    <a name="simulationFrequency" val="512000.0"/>
+    <a name="simulationFrequency" val="256.0"/>
     <comp lib="0" loc="(0,680)" name="Tunnel">
       <a name="facing" val="east"/>
       <a name="label" val="RESET"/>
@@ -1975,23 +1975,22 @@
       <a name="addrWidth" val="16"/>
       <a name="appearance" val="logisim_evolution"/>
       <a name="contents">addr/data: 16 8
-9 ff 12 ff 32 9 32 12
-ff 1 b ff 1 46 21 5
-3e 21 c8 12 ff 0 c ff
-0 31 32 49 cd 9 1 6a
-0 7e 9 0 70 80 79 1
-49 fe 9 2 6a 0 7e 9
-0 e0 9 3 5a 0 7e 9
-ff 21 a 5a 0 43 9 4
-52 0 7e 19 a 31 14 62
-0 4f 9 5 52 0 7e 9
-14 a8 9 c8 b8 49 14 6a
-0 7e 9 f e0 9 0 b0
-9 3 e0 c0 d8 49 f 6a
-0 7e 9 a 92 0 72 52
-0 7b 21 5 5a 0 7a 92
-0 72 98 9 7b e8 12 ff
-ff e8
+9 ff 12 fe 32 9 32 12
+fe 1 b fe 1 46 21 5
+3e 21 c8 12 fe 0 c fe
+0 31 32 49 cd 6a 0 7c
+9 0 70 80 79 1 49 fe
+9 2 6a 0 7c 9 0 e0
+9 3 5a 0 7c 9 ff 21
+a 5a 0 41 9 4 52 0
+7c 19 a 31 14 62 0 4d
+9 5 52 0 7c 9 14 a8
+9 c8 b8 49 14 6a 0 7c
+9 f e0 9 0 b0 9 3
+e0 c0 d8 49 f 6a 0 7c
+9 a 92 0 70 52 0 79
+21 5 5a 0 78 92 0 70
+98 9 7b e8 12 fe ff e8
 </a>
     </comp>
     <comp lib="4" loc="(640,400)" name="RAM">
