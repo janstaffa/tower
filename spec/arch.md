@@ -66,7 +66,7 @@ The Tower uses multiple types of registers for different purposes, however the p
 | -------------------- | --------------------------------------------------------------------------------- | ----------- |
 | Program Counter      | Program counter                                                                   | 16          |
 | Instruction Register | Stores the instruction that is being executed.                                    | 8           |
-| Stack Pointer        | Stores the current position in the stack.                                         | 8          |
+| Stack Pointer        | Stores the current position in the stack.                                         | 8           |
 | L Argument register  | Stores the low byte of an argument to be used as an argument to any instruction.  | 8           |
 | H Argument register  | Stores the high byte of an argument to be used as an argument to any instruction. | 8           |
 | Flags register       | Stores flags(see below).                                                          | 8           |
@@ -77,13 +77,10 @@ The Tower uses multiple types of registers for different purposes, however the p
 
 Flags are used to store boolean information between instructions. They are set automatically depending on the executed instruction. The Carry and Zero flags directly change the behavior of the control logic allowing for a feedback loop which is necessary to make the computer Turing complete.
 
-| **name** | **description**                                                      |
-| -------- | -------------------------------------------------------------------- |
-| Carry    | Set when the carry flag is set. (if instruction was CMP, RAX \< RBX) |
-| Zero     | Set when the result of an operation is zero -\> RAX == RBX           |
-| Sign     | Set if the number could be negative.                                 |
-| Overflow | Set when a signed number overflows.                                  |
-| InCarry  | Set when the incrementer overflows.                                  |
+| **name** | **description**                                                          |
+| -------- | ------------------------------------------------------------------------ |
+| Carry    | Set when an unsigned addition overflows.                                 |
+| Zero     | Set when the result of an operation is zero -\> RAX == RBX               |
 
 ## 3. Arithmetic Logic Unit
 
@@ -99,6 +96,8 @@ Available operations of the ALU are:
 By design the ALU can only perform a small number of operations. More complex operations can be implemented in software. This allows for much simpler hardware at the cost of more instructions required to perform some operations. Since the computer is Turing complete, any calculation can be implemented using these few operations.
 
 If the 8 bit numeral range is not sufficient and the number overflows the carry bit is set. the carry out bit from the previous operation can be used as the carry in bit of the next operation. This is done using the ADC and SBC instructions. This scheme allows for chaining of addition/subtraction operations and therefore operating on larger values than one byte.
+
+The ALU contains an Incrementer circuit capable of inc/decrementing, this component however is fully isolated from the ALU flags so if a number overflows inside the Incrementer the carry flag will not be set. This component is mainly used by the CPU internally.
 
 ## 4. Control logic
 

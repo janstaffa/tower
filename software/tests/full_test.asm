@@ -70,15 +70,15 @@
 	CMP #20
 	JNZ _failed
 
-	LDA #0b1111
+	LDA #0b11
 	TAF
 	LDA #0
 	PSF
-	LDA #0b0011
+	LDA #0b01
 	TAF
 	POF
 	TFA
-	CMP #0b1111
+	CMP #0b11
 	JNZ _failed
 
 
