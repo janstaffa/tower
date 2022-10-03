@@ -1,3 +1,7 @@
+; display 123 on 7 segment display
+LDA #123
+STA &0xFF03
+
 ; display alternating pattern on LEDs
 LDA #0b10101010
 STA &0xFF00
