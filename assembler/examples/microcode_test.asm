@@ -11,7 +11,7 @@
     IEND, HLT, PCE, PCO, PCJ, AI, AO, BI, BO
     imm:
         OPSUB
-        #if carry
+        #if wrap 
             HLT IEND TEST
             #if zero
                 DVE OPADD

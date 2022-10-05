@@ -1,6 +1,6 @@
 use crate::{
-    get_instruction_by_name, read_file, AssemblerError, SyntaxError, IM_ABSOLUTE, IM_CONSTANT,
-    IM_IMMEDIATE, IM_IMPLIED, IM_INDIRECT, IM_REGA, IM_REGB, IM_ZEROPAGE,
+    get_instruction_by_name, read_file, AssemblerError, SyntaxError, IM_ABSOLUTE, IM_ACCUMULATOR,
+    IM_CONSTANT, IM_IMMEDIATE, IM_IMPLIED, IM_INDIRECT, IM_ZEROPAGE,
 };
 use regex::Regex;
 use std::io::Write;
@@ -265,8 +265,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                         IM_ABSOLUTE,
                         IM_INDIRECT,
                         IM_ZEROPAGE,
-                        IM_REGA,
-                        IM_REGB,
+                        IM_ACCUMULATOR,
                     ];
 
                     // initialize a version of the instruction for every Instruction Mode and flag combination
@@ -601,8 +600,7 @@ fn parse(tokens: Vec<TokenizedLine>) -> Result<Vec<InstructionDef>, SyntaxError>
                     "abs" => IM_ABSOLUTE,
                     "ind" => IM_INDIRECT,
                     "zpage" => IM_ZEROPAGE,
-                    "rega" => IM_REGA,
-                    "regb" => IM_REGB,
+                    "accumulator" => IM_ACCUMULATOR,
                     _ => {
                         return Err(SyntaxError::new(
                             *real_line,

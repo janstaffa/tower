@@ -3,6 +3,7 @@
 ; Tests every instruction in every instruction mode.
 ; Error code will be stored at 0xFEFF.
 
+
 ; ========== MACROS ==========
 #macro MW
 	LDA $1
@@ -16,13 +17,22 @@
 	MW #0xFF, &0xFE32
 
 	; test 1 - ADDING, INC, DEC, indirect access
+	INC *0xFE00
+	LDA *0xFE00
+	CMP #1
+	JNZ _failed
+	DEC *0xFE00
+	LDA *0xFE00
+	CMP #0
+	JNZ _failed
+
 	LDA #50
 	STA &0xFE01
 	LDA *0xFE01
-	DEC %A
-	DEC %A
+	DEC A
+	DEC A
 	ADD #5
-	INC %A
+	INC A
 	ADD #200
 	STA &0xFE00
 	LDA @0xFE00
@@ -34,8 +44,8 @@
 
 	; test 2 - NAND and SR
 	LDA #0
-	NOTA
-	SRA
+	NOT A
+	SR A
 	NAND #0b00000001
 	CMP #254
 	LDA #02
@@ -46,10 +56,10 @@
 	LDA #0
 	TAF
 	LDA #03
-	JC _failed
+	JW _failed
 	LDA #255
 	ADD #10
-	JC _continue1
+	JW _continue1
 	LDA #04
 	JMP _failed
 	_continue1:
@@ -70,15 +80,15 @@
 	CMP #20
 	JNZ _failed
 
-	LDA #0b11
+	LDA #0b1111
 	TAF
 	LDA #0
 	PSF
-	LDA #0b01
+	LDA #0b0001
 	TAF
 	POF
 	TFA
-	CMP #0b11
+	CMP #0b1111
 	JNZ _failed
 
 
@@ -89,8 +99,9 @@
 
 	recursive_function:
 		ADD #5
-		JC _break
+		JW _break
 		JSR recursive_function
+		RTS
 		_break:
 			RTS
 

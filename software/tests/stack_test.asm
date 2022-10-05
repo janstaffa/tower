@@ -25,7 +25,7 @@
 
 	recursive_function:
 		ADD #5
-		JC _break
+		JW _break
 		JSR recursive_function
 		_break:
 			RTS

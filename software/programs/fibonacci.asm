@@ -26,7 +26,7 @@ _compute:
     LDA *0xFD02
     ADD *0xFD03
 
-    JC _return
+    JW _return
     JMP _continue
 
     _return:

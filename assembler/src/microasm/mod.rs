@@ -56,13 +56,14 @@ pub const STEP_COUNTER_BIT_SIZE: u32 = 4;
 pub const INSTRUCTION_MODE_BIT_SIZE: u32 = 3;
 pub const FLAGS_BIT_SIZE: u32 = 3;
 
-pub const INSTRUCTION_MODE_COUNT: usize = 2_usize.pow(INSTRUCTION_MODE_BIT_SIZE);
+pub const MAX_INSTRUCTION_MODE_COUNT: usize = 2_usize.pow(INSTRUCTION_MODE_BIT_SIZE);
+pub const INSTRUCTION_MODE_COUNT: usize = MAX_INSTRUCTION_MODE_COUNT - 1;
 pub const FLAG_COMBINATIONS: usize = 2_usize.pow(FLAGS_BIT_SIZE);
 pub const TOTAL_DEF_COMBINATIONS: usize = INSTRUCTION_MODE_COUNT * FLAG_COMBINATIONS;
 
 pub const MAX_MICRO_STEP_COUNT: usize = 16;
 
-pub const FLAGS: [&'static str; FLAGS_BIT_SIZE as usize] = ["CARRY", "ZERO", "INCARRY"];
+pub const FLAGS: [&'static str; FLAGS_BIT_SIZE as usize] = ["WRAP", "ZERO", "INCWRAP"];
 
 pub const CONTROL_BYTES: usize = 5;
 

@@ -1,6 +1,4 @@
-use crate::{
-    InstructionMode, IM_ABSOLUTE, IM_CONSTANT, IM_IMMEDIATE, IM_INDIRECT, IM_REGA, IM_REGB,
-};
+use crate::{InstructionMode, IM_ABSOLUTE, IM_ACCUMULATOR, IM_CONSTANT, IM_IMMEDIATE, IM_INDIRECT};
 
 pub mod asm;
 
@@ -67,14 +65,13 @@ pub fn analyze_arg(arg: &str) -> Result<InstructionMode, String> {
         '#' => IM_IMMEDIATE,
         '*' => IM_ABSOLUTE,
         '@' => IM_INDIRECT,
-        '%' => {
-            let reg = arg.chars().nth(1).unwrap();
-            match reg {
-                'a' => IM_REGA,
-                'b' => IM_REGB,
-                _ => return Err(format!("Invalid register '{}'.", reg)),
-            }
-        }
+        'a' => IM_ACCUMULATOR,
+        // let reg = arg.chars().nth(1).unwrap();
+        // match reg {
+        //     'a' => IM_REGA,
+        //     'b' => IM_REGB,
+        //     _ => return Err(format!("Invalid register '{}'.", reg)),
+        // }
         '&' => IM_CONSTANT,
         _ => 0,
     };
@@ -98,7 +95,7 @@ pub fn parse_arg(arg: &str) -> Result<Option<Argument>, String> {
         let im = analyze_arg(arg)?;
 
         let str_val = match im {
-            IM_REGA | IM_REGB => return Ok(None),
+            IM_ACCUMULATOR => return Ok(None),
             0 => arg,
             _ => &arg[1..],
         };

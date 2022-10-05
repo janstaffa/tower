@@ -7,7 +7,7 @@ pub mod microasm;
 pub type InstructionMode = u32;
 
 pub const fn im_idx_to_val(idx: u32) -> u32 {
-	1 << idx
+    1 << idx
 }
 pub const IM_IMPLIED: InstructionMode = im_idx_to_val(0);
 pub const IM_IMMEDIATE: InstructionMode = im_idx_to_val(1);
@@ -15,15 +15,14 @@ pub const IM_CONSTANT: InstructionMode = im_idx_to_val(2);
 pub const IM_ABSOLUTE: InstructionMode = im_idx_to_val(3);
 pub const IM_INDIRECT: InstructionMode = im_idx_to_val(4);
 pub const IM_ZEROPAGE: InstructionMode = im_idx_to_val(5);
-pub const IM_REGA: InstructionMode = im_idx_to_val(6);
-pub const IM_REGB: InstructionMode = im_idx_to_val(7);
+pub const IM_ACCUMULATOR: InstructionMode = im_idx_to_val(6);
 
 pub const fn get_argument_size_by_im(im: InstructionMode) -> u32 {
-	match im {
-		IM_ABSOLUTE | IM_CONSTANT | IM_INDIRECT => 2,
-		IM_IMMEDIATE | IM_ZEROPAGE => 1,
-		_ => 0,
-	}
+    match im {
+        IM_ABSOLUTE | IM_CONSTANT | IM_INDIRECT => 2,
+        IM_IMMEDIATE | IM_ZEROPAGE => 1,
+        _ => 0,
+    }
 }
 
 pub fn get_im_name(im: InstructionMode) -> Result<&'static str, ()> {
@@ -35,8 +34,7 @@ pub fn get_im_name(im: InstructionMode) -> Result<&'static str, ()> {
         IM_ABSOLUTE => "Absolute",
         IM_INDIRECT => "Indirect",
         IM_ZEROPAGE => "Zeropage",
-        IM_REGA => "RegA",
-        IM_REGB => "RegB",
+        IM_ACCUMULATOR => "Accumulator",
         _ => return Err(()),
     };
     Ok(im)
@@ -63,17 +61,17 @@ pub static INSTRUCTIONS: &[Instruction] = &[
     ("ADD", IM_IMM_ABS_ZP_IND),
     ("SBB", IM_IMM_ABS_ZP_IND),
     ("SUB", IM_IMM_ABS_ZP_IND),
-    ("INC", IM_CONSTANT | IM_REGA | IM_REGB),
-    ("DEC", IM_CONSTANT | IM_REGA | IM_REGB),
+    ("INC", IM_ABSOLUTE | IM_ACCUMULATOR),
+    ("DEC", IM_ABSOLUTE | IM_ACCUMULATOR),
     ("CMP", IM_IMM_ABS_ZP_IND),
     ("JMP", IM_CONSTANT | IM_INDIRECT),
-    ("JC", IM_CONSTANT | IM_INDIRECT),
+    ("JW", IM_CONSTANT | IM_INDIRECT),
     ("JZ", IM_CONSTANT | IM_INDIRECT),
     ("JNZ", IM_CONSTANT | IM_INDIRECT),
-    ("NOTA", IM_IMPLIED),
+    ("NOT", IM_ABSOLUTE | IM_ACCUMULATOR),
     ("NAND", IM_IMM_ABS_ZP_IND),
-    ("SRA", IM_IMPLIED),
-    ("SLA", IM_IMPLIED),
+    ("SR", IM_ABSOLUTE | IM_ACCUMULATOR),
+    ("SL", IM_ABSOLUTE | IM_ACCUMULATOR),
     ("JSR", IM_CONSTANT | IM_INDIRECT),
     ("RTS", IM_IMPLIED),
     ("TBA", IM_IMPLIED),

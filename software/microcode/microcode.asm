@@ -30,11 +30,13 @@
 	ARHLO MO HI
 
 	ARLO INCI
-	INCE INCO ARLI
+	INCE
+	INCO ARLI
 
-	#if incarry
+	#if incwrap 
 		ARHO INCI
-		INCE INCO ARHI
+		INCE
+		INCO ARHI
 	#end
 
 	ARHLO MO LI
@@ -78,6 +80,8 @@ ind:
 
 	HLO ALUO MI
 
+#suf
+; nothing
 
 ; ========== ADC ==========
 #def ADC
@@ -87,23 +91,27 @@ imm:
 	PCI
 
 	OPADD ALUFI ALUO AI
+	IEND
 abs:
 	FETCH_ARGS
 
 	ARHLO MO BI
 
 	OPADD ALUFI ALUO AI
+	IEND
 zpage:
 	FETCH_LOW
 
 	_RAMSTART ARHLO MO BI
 
 	OPADD ALUFI ALUO AI
+	IEND
 ind:
 	FETCH_INDIRECTLY
 
 	HLO MO BI
 	OPADD ALUFI ALUO AI
+
 
 
 ; ========== ADD ==========
@@ -114,24 +122,33 @@ imm:
 	PCI
 
 	OPADD ALUO AI
+	IEND
 abs:
 	FETCH_ARGS
 
 	ARHLO MO BI
 
 	OPADD ALUO AI
+	IEND
 zpage:
 	FETCH_LOW
 
 	_RAMSTART ARHLO MO BI
 
 	OPADD ALUO AI
+	IEND
 ind:
 	FETCH_INDIRECTLY
 
 	HLO MO BI
 	OPADD ALUO AI
 
+#suf
+	IEND
+
+
+#suf
+; nothing
 
 ; ========== SBB ==========
 #def SBB
@@ -141,23 +158,29 @@ imm:
 	PCI
 
 	OPSUB ALUFI ALUO AI
+	IEND
 abs:
 	FETCH_ARGS
 
 	ARHLO MO BI
 
 	OPSUB ALUFI ALUO AI
+	IEND
 zpage:
 	FETCH_LOW
 
 	_RAMSTART ARHLO MO BI
 
 	OPSUB ALUFI ALUO AI
+	IEND
 ind:
 	FETCH_INDIRECTLY
 
 	HLO MO BI
 	OPSUB ALUFI ALUO AI
+
+
+
 
 ; ========== SUB ==========
 #def SUB
@@ -167,51 +190,58 @@ imm:
 	PCI
 
 	OPSUB ALUO AI
+	IEND
 abs:
 	FETCH_ARGS
 
 	ARHLO MO BI
 
 	OPSUB ALUO AI
+	IEND
 zpage:
 	FETCH_LOW
 
 	_RAMSTART ARHLO MO BI
 
 	OPSUB ALUO AI
+	IEND
 ind:
 	FETCH_INDIRECTLY
 
 	HLO MO BI
 	OPSUB ALUO AI
 
+#suf
+	IEND
+
 ; ========== INC ==========
 #def INC
-rega:
-	ALUO INCI
-	INCE INCO AI
-regb:
-	BO INCI
-	INCE INCO BI
-const:
+abs:
 	FETCH_ARGS
 
 	ARHLO MO INCI
-	ARHLO INCE INCO MI
+	INCE 
+	ARHLO INCO MI
+accumulator:
+	ALUO INCI
+	INCE 
+	INCO AI
 
 ; ========== DEC ==========
 #def DEC
-rega:
-	ALUO INCI
-	DEC INCE INCO AI
-regb:
-	BO INCI
-	DEC INCE INCO BI
-const:
+abs:
 	FETCH_ARGS
 
 	ARHLO MO INCI
-	ARHLO DEC INCE INCO MI
+	DEC INCE 
+	ARHLO INCO MI
+accumulator:
+	ALUO INCI
+	DEC INCE
+	INCO AI
+
+#suf
+; nothing
 
 ; ========== CMP ==========
 #def CMP
@@ -239,6 +269,9 @@ ind:
 	HLO MO BI
 	OPSUB
 
+#suf
+	IEND
+
 ; ========== JMP ==========
 #def JMP
 const:
@@ -251,10 +284,10 @@ ind:
 	HLO PCJ
 
 
-; ========== JC ==========
-#def JC
+; ========== JW ==========
+#def JW
 const:
-	#if carry
+	#if wrap
 		FETCH_ARGS
 		ARHLO PCJ
 	#else
@@ -262,7 +295,7 @@ const:
 		PCI
 	#end
 ind:
-	#if carry
+	#if wrap
 		FETCH_INDIRECTLY
 		HLO PCJ
 	#else
@@ -307,10 +340,13 @@ ind:
 		PCI
 		PCI
 	#end
-; ========== NOTA ==========
-#def NOTA 
-imp:
+; ========== NOT ==========
+#def NOT
+accumulator:
 	OPNOT ALUO AI
+
+#suf
+; nothing
 
 ; ========== NAND ==========
 #def NAND
@@ -337,15 +373,17 @@ ind:
 
 	HLO MO BI
 	OPNAND ALUO AI
+#suf
+	IEND
 
-; ========== SRA ==========
-#def SRA 
-imp:
+; ========== SR ==========
+#def SR
+accumulator:
 	OPSR ALUO AI
 
-; ========== SLA ==========
-#def SLA 
-imp:
+; ========== SL ==========
+#def SL
+accumulator:
 	ALUO BI
 	OPADD ALUO AI
 

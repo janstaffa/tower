@@ -7,7 +7,7 @@ MW #0xFF, &0x4000
 
 lda #0
 _loop:
-	jc _stop
+	jw _stop
 	add #1
 	sta &0x4001
 

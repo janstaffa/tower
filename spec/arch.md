@@ -75,12 +75,14 @@ The Tower uses multiple types of registers for different purposes, however the p
 
 ### Flags
 
-Flags are used to store boolean information between instructions. They are set automatically depending on the executed instruction. The Carry and Zero flags directly change the behavior of the control logic allowing for a feedback loop which is necessary to make the computer Turing complete.
+Flags are used to store boolean information between instructions. They are set automatically depending on the executed instruction. The Wrap and Zero flags directly change the behavior of the control logic allowing for a feedback loop which is necessary to make the computer Turing complete.
 
-| **name** | **description**                                                          |
-| -------- | ------------------------------------------------------------------------ |
-| Carry    | Set when an unsigned addition overflows.                                 |
-| Zero     | Set when the result of an operation is zero -\> RAX == RBX               |
+| **name** | **description**                                                                       |
+| -------- | ------------------------------------------------------------------------------------- |
+| Wrap     | Set when an unsigned addition wraps around.                                           |
+| Zero     | Set when the result of an operation is zero -\> RAX == RBX                            |
+| Sign     | Set when a number is negative in twos complement.                                     |
+| Overflow | Set when the result of an operation has changed the sign (a signed number overflows). |
 
 ## 3. Arithmetic Logic Unit
 
@@ -95,9 +97,9 @@ Available operations of the ALU are:
 
 By design the ALU can only perform a small number of operations. More complex operations can be implemented in software. This allows for much simpler hardware at the cost of more instructions required to perform some operations. Since the computer is Turing complete, any calculation can be implemented using these few operations.
 
-If the 8 bit numeral range is not sufficient and the number overflows the carry bit is set. the carry out bit from the previous operation can be used as the carry in bit of the next operation. This is done using the ADC and SBC instructions. This scheme allows for chaining of addition/subtraction operations and therefore operating on larger values than one byte.
+If the 8 bit numeral range is not sufficient and the number wraps around the wrap flag is set, in the next operation this flag can be used in the calculation. This is done using the ADW and SBW instructions. This scheme allows for chaining of addition/subtraction operations and therefore operating on larger values than one byte.
 
-The ALU contains an Incrementer circuit capable of inc/decrementing, this component however is fully isolated from the ALU flags so if a number overflows inside the Incrementer the carry flag will not be set. This component is mainly used by the CPU internally.
+The ALU contains an Incrementer circuit capable of inc/decrementing, this component however is fully isolated from the ALU flags so if a number overflows inside the Incrementer the Wrap flag will not be set. This component is mainly used by the CPU internally.
 
 ## 4. Control logic
 
@@ -115,11 +117,12 @@ If the instruction requires an argument, it will be fetched from the next one or
 
 **Absolute** mode uses the following two words as the effective address of the operand.
 
-**Indirect** mode uses the following two words as the address containing the high byte of the effective address. The low byte is fetched by incrementing this address. This mode is useful for stepping through arrays as well as using pointers.
+**Indirect** mode uses the following two words as the address containing the high byte of the effective address. The low byte is fetched by incrementing this address. It is up to the programmer to check if this operation may overflow or get into an invalid region of memory (@0xFEFF will cause unexpected behaviour - 0xFF00-0xFFFF is a reserved part of memory used by I/O). This mode is useful for stepping through arrays as well as using pointers. It can work as absolute or constant mode based on the context.
 
-**Zero page** mode allows for faster memory access by only requiring the low byte of the address to be specified. The high byte is implied to be the zero page. This mode is useful for storing temporary data that would otherwise be stored in registers.
+**Zero page** mode allows for faster memory access, since it only fetches one byte. It can work as absolute or constant mode based on the context.
 
-**Register A/B** mode specifies a register to be used as the operand.
+**Accumulator** mode uses the A register as its operand.
+
 
 A ROM containing the microcode is then used to find the set of micro instructions required to perform this instruction. This is done by combining values from the flags register, the current micro step, the number of arguments and the opcode of the instruction and using this value as a memory address in the ROM. Below is a visual representation of how these values are combined to form an address.
 
@@ -158,7 +161,7 @@ The memory is split between multiple chips which are mapped to explicit memory a
 
 ### Zero page
 
-Since the computer is designed to run at a rather slow clock speed, memory access is not much slower than register access, therefore the Tower does not have any souly general purpose registers. To compensate this, it treats the first "page" of memory(first 256B) differently by only requiring the low byte to be specified when addressed. When used correctly, this scheme can save many clock cycles. This area of memory is used to store additional data that would normally be stored in physical registers.
+Since the computer is designed to run at a rather slow clock speed, memory access is not much slower than register access, therefore the Tower does not have any souly general purpose registers. To compensate this, it treats the first "page" of RAM (first 256B) differently by only requiring the low byte to be specified when addressed. When used correctly, this scheme can save many clock cycles. This area of memory is used to store additional data that would normally be stored in physical registers.
 
 ## 7. Instruction Set Architecture
 
@@ -203,6 +206,7 @@ The instruction set is defined <a href="instructions.md">here</a>.
 - ARHLO ... output H and L to the address BUS
 
 **ALU**
+wr
 
 - ALUO ... output the value in the ALU to the data BUS
 - OPADD ... set ALU to ADD
@@ -210,7 +214,7 @@ The instruction set is defined <a href="instructions.md">here</a>.
 - OPNOT ... set ALU to NOT
 - OPNAND ... set ALU to NAND
 - OPSR ... set ALU to SHIFT RIGHT
-- ALUFI ... enables the Carry flag to be used by the ALu
+- ALUFI ... enables flags to be used by the ALU
 - INCE ... enables the Incrementer
 - DEC ... sets the Incrementer to decrement
 - INCI ... set the Incrementer to the value on the data BUS

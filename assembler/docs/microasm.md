@@ -3,12 +3,12 @@
 The Tower microassembler is used to assemble microcode for the computer. It uses the syntax defined in this document. **The assembler is case in-sensitive.**
 
 **Table of contents:**
+
 1. Syntax
 2. Macros
 3. Prefixes and suffixes
 4. Instruction modes
 5. Conditional definitions
-
 
 ### 1. Syntax
 
@@ -105,28 +105,30 @@ ind:
 ```
 
 ### 5. Conditional definitions
+
 A single instruction can have different definitions defined for different flag combinations. Available flags are:
 
-| Flag     | identifier |
-|----------|------------|
-| Carry    | carry      |
-| Zero     | zero       |
-| InCarry  | incarry       |
+| Flag    | Description                               |
+| ------- | ----------------------------------------- |
+| wrap    | Set when ALU result wraps around.         |
+| zero    | Set when ALU result is zero.              |
+| incwrap | Set when Incrementer result wraps around. |
 
-To initialize a conditional definition, you have to use the `#if` keyword followed by the flag identifier. After the conditional block of code, you can either write the `#end` keyword to exit the block or the `#else` keyword to enter an else block. Note: the `#end` keyword is also used after else blocks.  
+To initialize a conditional definition, you have to use the `#if` keyword followed by the flag identifier. After the conditional block of code, you can either write the `#end` keyword to exit the block or the `#else` keyword to enter an else block. Note: the `#end` keyword is also used after else blocks.
 
 Note: conditionals can also be used inside macro, prefix and suffix definitions and work as expected.
 
 **Example:**
+
 ```asm
 #def ADD
-sig1 ; this will be always added at the beggining 
-; if the carry flag is set sig2 will be added, otherwise sig3 will be
-#if carry
+sig1 ; this will be always added at the beggining
+; if the wrap flag is set sig2 will be added, otherwise sig3 will be
+#if wrap
     sig2
 #else
     sig3
 #end
-sig4 ; this will be always added at the end 
+sig4 ; this will be always added at the end
 
 ```
